@@ -1,0 +1,16 @@
+{
+  "name": "document-workbench-tools",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "fixtures": "node tools/fixtures/build.mjs",
+    "qa": "node tools/verify.mjs",
+    "qa:all": "npm run fixtures && npm run qa"
+  },
+  "dependencies": {},
+  "devDependencies": {
+    "docx": "8.5.0",
+    "exceljs": "4.4.0",
+    "playwright": "1.55.0"
+  }
+}

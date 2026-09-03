@@ -1,0 +1,397 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Word ↔ Markdown Studio v2.0</title>
+<style>
+:root{
+ --bg:#f3f5f8;--panel:#fff;--line:#e5e8ee;--text:#202733;--muted:#7b8492;--accent:#596ff5;--soft:#eef1ff;
+ --paper-w:820px;--radius:12px;
+ --title-size:32px;--title-weight:760;--title-color:#171b24;--title-lh:1.28;--title-mb:22px;
+ --h1-size:27px;--h1-weight:740;--h1-color:#1b2029;--h1-lh:1.35;--h1-mt:28px;--h1-mb:14px;
+ --h2-size:22px;--h2-weight:700;--h2-color:#232a35;--h2-lh:1.4;--h2-mt:25px;--h2-mb:12px;
+ --h3-size:18px;--h3-weight:680;--h3-color:#303846;--h3-lh:1.48;--h3-mt:21px;--h3-mb:9px;
+ --h4-size:16px;--h4-weight:670;--h4-color:#3a4352;--h4-lh:1.5;--h4-mt:18px;--h4-mb:8px;
+ --body-size:15px;--body-weight:400;--body-color:#3b4452;--body-lh:1.82;--body-mb:12px;
+ --desc-size:14px;--desc-color:#667085;--desc-bg:#f7f8fb;--desc-border:#dfe3ea;
+ --small-size:12px;--small-color:#8b94a3;
+ --callout-size:14px;--callout-color:#384252;--callout-bg:#f5f7ff;--callout-border:#cfd7ff;
+ --quote-color:#5c6675;--quote-bg:#f7f8fa;--quote-border:#b9c1ce;
+ --table-size:13px;--table-head-bg:#f6f7f9;--table-border:#dfe3e8;
+}
+*{box-sizing:border-box}html,body{height:100%}body{margin:0;font-family:Inter,"PingFang SC","Microsoft YaHei",system-ui,sans-serif;background:var(--bg);color:var(--text)}
+button,input,select,textarea{font:inherit}.app{height:100vh;display:flex;flex-direction:column}
+.top{height:64px;background:rgba(255,255,255,.95);border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between;padding:0 18px;backdrop-filter:blur(14px);z-index:5}
+.brand{display:flex;align-items:center;gap:11px}.mark{width:38px;height:38px;border-radius:11px;background:linear-gradient(135deg,#566cf3,#8c9cff);display:grid;place-items:center;color:white;font-size:12px;font-weight:800}.brand h1{font-size:16px;margin:0}.brand p{font-size:11px;color:var(--muted);margin:2px 0 0}
+.actions{display:flex;gap:7px;align-items:center;flex-wrap:wrap}.btn,.filebtn{height:36px;padding:0 12px;border:1px solid var(--line);background:#fff;color:#3d4755;border-radius:9px;font-size:12px;cursor:pointer;display:inline-flex;align-items:center;gap:6px}.btn:hover,.filebtn:hover{border-color:#cbd2dc;background:#fafbfc}.btn.primary{background:var(--accent);border-color:var(--accent);color:#fff}.filebtn input{display:none}
+.work{flex:1;min-height:0;display:grid;grid-template-columns:minmax(370px,.9fr) minmax(540px,1.1fr);gap:12px;padding:12px}
+.panel{background:#fff;border:1px solid var(--line);border-radius:14px;overflow:hidden;min-height:0;min-width:0;display:flex;flex-direction:column;box-shadow:0 10px 30px rgba(24,32,50,.05)}
+.head{height:48px;padding:0 13px;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between}.head strong{font-size:13px}.sub{font-size:11px;color:var(--muted)}
+.editor{flex:1;border:0;outline:0;resize:none;padding:18px 18px 28px;background:#fbfcfe;color:#293445;font:13px/1.72 "SFMono-Regular",Consolas,Menlo,monospace;white-space:pre;overflow:auto}
+.quick{padding:9px 13px;border-top:1px solid var(--line);display:flex;gap:8px;flex-wrap:wrap;background:#fff}.chip{border:1px solid var(--line);background:#f8f9fb;color:#667085;padding:4px 7px;border-radius:6px;font-size:10px;cursor:pointer}.chip:hover{background:#f2f4f7}
+.status{height:30px;border-top:1px solid var(--line);padding:0 12px;display:flex;align-items:center;justify-content:space-between;font-size:10px;color:#8b94a3;background:#fff}
+.previewwrap{flex:1;min-height:0;overflow:auto;background:#eceff3;padding:26px 22px 52px}.paper{width:min(100%,var(--paper-w));min-height:1120px;margin:auto;background:#fff;border:1px solid #e8ebf0;box-shadow:0 8px 28px rgba(25,35,55,.09);padding:60px 66px 78px;outline:0}
+.paper .doc-title{font-size:var(--title-size);font-weight:var(--title-weight);color:var(--title-color);line-height:var(--title-lh);margin:0 0 var(--title-mb);letter-spacing:-.025em}
+.paper h1{font-size:var(--h1-size);font-weight:var(--h1-weight);color:var(--h1-color);line-height:var(--h1-lh);margin:var(--h1-mt) 0 var(--h1-mb);letter-spacing:-.02em}.paper h2{font-size:var(--h2-size);font-weight:var(--h2-weight);color:var(--h2-color);line-height:var(--h2-lh);margin:var(--h2-mt) 0 var(--h2-mb)}.paper h3{font-size:var(--h3-size);font-weight:var(--h3-weight);color:var(--h3-color);line-height:var(--h3-lh);margin:var(--h3-mt) 0 var(--h3-mb)}.paper h4{font-size:var(--h4-size);font-weight:var(--h4-weight);color:var(--h4-color);line-height:var(--h4-lh);margin:var(--h4-mt) 0 var(--h4-mb)}
+.paper p,.paper li{font-size:var(--body-size);font-weight:var(--body-weight);color:var(--body-color);line-height:var(--body-lh)}.paper p{margin:0 0 var(--body-mb)}.paper ul,.paper ol{margin:8px 0 15px;padding-left:1.5em}.paper li{margin:4px 0}.paper ul ul,.paper ol ol,.paper ul ol,.paper ol ul{margin:3px 0}
+.paper strong{font-weight:700;color:#242b35}.paper em{color:#5b6573}.paper del{text-decoration-thickness:1.4px}.paper mark{background:#fff1a8;padding:0 2px}.paper u{text-underline-offset:2px}.paper sup,.paper sub{font-size:.72em}
+.paper a{color:#536be8;text-decoration:none}.paper code{background:#f0f2f5;border-radius:5px;padding:2px 5px;font:12px/1.5 ui-monospace,monospace}.paper pre{background:#171c25;color:#e9edf5;border-radius:10px;padding:14px 16px;overflow:auto;font:12px/1.65 ui-monospace,monospace;margin:16px 0}
+.paper blockquote{margin:17px 0;padding:12px 15px;border-left:3px solid var(--quote-border);background:var(--quote-bg);border-radius:0 9px 9px 0}.paper blockquote p{color:var(--quote-color);margin:0}
+.paper .desc{font-size:var(--desc-size);line-height:1.72;color:var(--desc-color);background:var(--desc-bg);border:1px solid var(--desc-border);border-radius:var(--radius);padding:12px 14px;margin:12px 0 18px}.paper .small{font-size:var(--small-size);line-height:1.65;color:var(--small-color);margin:6px 0 12px}.paper .callout{font-size:var(--callout-size);line-height:1.72;color:var(--callout-color);background:var(--callout-bg);border:1px solid var(--callout-border);border-radius:var(--radius);padding:12px 14px;margin:14px 0;display:flex;gap:9px;align-items:flex-start}.paper .ico{font-size:16px;line-height:1.5;flex:0 0 auto}.paper .ct{flex:1}
+.paper table{width:100%;border-collapse:collapse;margin:18px 0;font-size:var(--table-size)}.paper th,.paper td{border:1px solid var(--table-border);padding:9px 10px;vertical-align:top;text-align:left}.paper th{background:var(--table-head-bg);font-weight:650}.paper img{max-width:100%;height:auto;border-radius:6px}.paper hr{border:0;border-top:1px solid #e1e5eb;margin:28px 0}
+.drawer{position:fixed;right:12px;top:76px;bottom:12px;width:340px;background:#fff;border:1px solid var(--line);border-radius:14px;box-shadow:0 18px 55px rgba(25,35,55,.17);z-index:20;display:none;flex-direction:column;overflow:hidden}.drawer.open{display:flex}.drawerhead{height:48px;padding:0 14px;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between}.drawerhead strong{font-size:13px}.x{border:0;background:transparent;color:#8b94a3;font-size:20px;cursor:pointer}.drawerbody{padding:12px;overflow:auto}
+.group{border:1px solid var(--line);border-radius:10px;overflow:hidden;margin-bottom:10px}.gtitle{font-size:12px;font-weight:700;color:#475467;padding:9px 10px;background:#f8f9fb}.fields{display:grid;grid-template-columns:1fr 1fr;gap:8px;padding:10px}.field{display:flex;flex-direction:column;gap:4px}.field.wide{grid-column:1/-1}.field label{font-size:10px;color:#7c8593}.field input,.field select{height:31px;border:1px solid #dde2e8;border-radius:7px;padding:0 8px;font-size:11px;outline:none}.field input[type=color]{padding:3px}
+.reportItem{border:1px solid var(--line);border-radius:9px;padding:10px;margin-bottom:8px}.reportTop{display:flex;justify-content:space-between;gap:8px;align-items:center}.badge{font-size:10px;font-weight:700;padding:3px 6px;border-radius:5px}.p0{background:#fff0ef;color:#c7463c}.p1{background:#fff7df;color:#9b6b00}.p2{background:#eff6ff;color:#4169b1}.p3{background:#f2f4f7;color:#667085}.ok{background:#ecfdf3;color:#16794a}.warn{background:#fff7ed;color:#a45812}.reportItem p{font-size:11px;line-height:1.55;color:#667085;margin:6px 0 0}.empty{font-size:12px;color:#8b94a3;padding:12px}
+.toast{position:fixed;right:20px;bottom:20px;background:#202733;color:#fff;padding:10px 14px;border-radius:9px;font-size:12px;opacity:0;transform:translateY(8px);transition:.2s;z-index:99;pointer-events:none}.toast.show{opacity:1;transform:none}
+@media(max-width:1000px){.work{grid-template-columns:1fr;grid-template-rows:1fr 1fr}.paper{padding:42px 34px}.top{height:auto;padding:10px;gap:10px;align-items:flex-start}.actions{justify-content:flex-end}.drawer{top:10px;right:10px;bottom:10px}}
+</style>
+<script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/docx@8.5.0/build/index.umd.js"></script>
+</head>
+<body>
+<div class="app">
+ <header class="top">
+  <div class="brand"><div class="mark">W↔M</div><div><h1>Word ↔ Markdown Studio v2.0</h1><p>规范驱动转换 · 结构优先 · 复杂内容可预见降级</p></div></div>
+  <div class="actions">
+   <label class="filebtn">导入 Word<input id="wordFile" type="file" accept=".docx"></label>
+   <label class="filebtn">导入 MD<input id="mdFile" type="file" accept=".md,.txt"></label>
+   <button class="btn" id="styleBtn">样式设置</button>
+   <button class="btn" id="reportBtn">转换报告 <span id="reportN"></span></button>
+   <button class="btn" id="exportMd">导出 MD</button>
+   <button class="btn" id="exportZip">导出 MD 包</button>
+   <button class="btn primary" id="exportWord">导出 Word</button>
+  </div>
+ </header>
+ <main class="work">
+  <section class="panel">
+   <div class="head"><div><strong>Markdown</strong><div class="sub">结构语义编辑区</div></div><div class="sub">UTF-8</div></div>
+   <textarea id="md" class="editor" spellcheck="false"></textarea>
+   <div class="quick">
+    <button class="chip" data-insert="# ">H1</button><button class="chip" data-insert="## ">H2</button>
+    <button class="chip" data-insert="::desc ">描述</button><button class="chip" data-insert="::small ">小字</button>
+    <button class="chip" data-insert="::tip ">💡提示</button><button class="chip" data-insert="::warn ">⚠️注意</button>
+    <button class="chip" data-insert="> ">引用</button><button class="chip" data-insert="```text\n\n```">代码块</button>
+   </div>
+   <div class="status"><span id="mdStat">0 字符</span><span id="assetStat">0 个图片资源</span></div>
+  </section>
+  <section class="panel">
+   <div class="head"><div><strong>Word 视觉预览</strong><div class="sub">可直接编辑 · 自动回写 Markdown</div></div><div class="sub">A4 阅读视图</div></div>
+   <div class="previewwrap"><article id="paper" class="paper" contenteditable="true"></article></div>
+   <div class="status"><span id="wordStat">0 字</span><span>标题 / 正文 / 描述 / 小字 / 图标提示均可独立定制</span></div>
+  </section>
+ </main>
+</div>
+
+<aside id="styleDrawer" class="drawer">
+ <div class="drawerhead"><strong>样式设置</strong><button class="x" data-close="styleDrawer">×</button></div>
+ <div class="drawerbody">
+  <div class="group"><div class="gtitle">文档标题</div><div class="fields">
+   <div class="field"><label>字号</label><input data-css="--title-size" value="32px"></div>
+   <div class="field"><label>字重</label><input data-css="--title-weight" value="760"></div>
+   <div class="field"><label>颜色</label><input type="color" data-css="--title-color" value="#171b24"></div>
+   <div class="field"><label>行高</label><input data-css="--title-lh" value="1.28"></div>
+  </div></div>
+  <div class="group"><div class="gtitle">标题 H1 / H2 / H3 / H4</div><div class="fields">
+   <div class="field"><label>H1 字号</label><input data-css="--h1-size" value="27px"></div><div class="field"><label>H1 字重</label><input data-css="--h1-weight" value="740"></div>
+   <div class="field"><label>H2 字号</label><input data-css="--h2-size" value="22px"></div><div class="field"><label>H2 字重</label><input data-css="--h2-weight" value="700"></div>
+   <div class="field"><label>H3 字号</label><input data-css="--h3-size" value="18px"></div><div class="field"><label>H3 字重</label><input data-css="--h3-weight" value="680"></div>
+   <div class="field"><label>H4 字号</label><input data-css="--h4-size" value="16px"></div><div class="field"><label>H4 字重</label><input data-css="--h4-weight" value="670"></div>
+  </div></div>
+  <div class="group"><div class="gtitle">正文</div><div class="fields">
+   <div class="field"><label>字号</label><input data-css="--body-size" value="15px"></div><div class="field"><label>字重</label><input data-css="--body-weight" value="400"></div>
+   <div class="field"><label>颜色</label><input type="color" data-css="--body-color" value="#3b4452"></div><div class="field"><label>行高</label><input data-css="--body-lh" value="1.82"></div>
+   <div class="field wide"><label>段后间距</label><input data-css="--body-mb" value="12px"></div>
+  </div></div>
+  <div class="group"><div class="gtitle">描述 ::desc</div><div class="fields">
+   <div class="field"><label>字号</label><input data-css="--desc-size" value="14px"></div><div class="field"><label>文字色</label><input type="color" data-css="--desc-color" value="#667085"></div>
+   <div class="field"><label>背景</label><input type="color" data-css="--desc-bg" value="#f7f8fb"></div><div class="field"><label>边框</label><input type="color" data-css="--desc-border" value="#dfe3ea"></div>
+  </div></div>
+  <div class="group"><div class="gtitle">小字 ::small</div><div class="fields">
+   <div class="field"><label>字号</label><input data-css="--small-size" value="12px"></div><div class="field"><label>颜色</label><input type="color" data-css="--small-color" value="#8b94a3"></div>
+  </div></div>
+  <div class="group"><div class="gtitle">图标提示块</div><div class="fields">
+   <div class="field"><label>字号</label><input data-css="--callout-size" value="14px"></div><div class="field"><label>文字色</label><input type="color" data-css="--callout-color" value="#384252"></div>
+   <div class="field"><label>背景</label><input type="color" data-css="--callout-bg" value="#f5f7ff"></div><div class="field"><label>边框</label><input type="color" data-css="--callout-border" value="#cfd7ff"></div>
+   <div class="field"><label>Tip 图标</label><input id="tipIcon" value="💡"></div><div class="field"><label>Warn 图标</label><input id="warnIcon" value="⚠️"></div>
+   <div class="field wide"><label>Info 图标</label><input id="infoIcon" value="ⓘ"></div>
+  </div></div>
+  <div class="group"><div class="gtitle">表格</div><div class="fields">
+   <div class="field"><label>字号</label><input data-css="--table-size" value="13px"></div><div class="field"><label>表头背景</label><input type="color" data-css="--table-head-bg" value="#f6f7f9"></div>
+   <div class="field wide"><label>边框</label><input type="color" data-css="--table-border" value="#dfe3e8"></div>
+  </div></div>
+ </div>
+</aside>
+
+<aside id="reportDrawer" class="drawer">
+ <div class="drawerhead"><strong>转换报告 / 自检</strong><button class="x" data-close="reportDrawer">×</button></div>
+ <div id="reportBody" class="drawerbody"></div>
+</aside>
+<div id="toast" class="toast"></div>
+
+<script>
+const mdEl=document.getElementById('md'), paper=document.getElementById('paper');
+const state={assets:new Map(),report:[],lock:false,sourceName:'document'};
+const NS='http://schemas.openxmlformats.org/wordprocessingml/2006/main';
+const RNS='http://schemas.openxmlformats.org/officeDocument/2006/relationships';
+
+function q(el,name){return el?el.getElementsByTagNameNS(NS,name)[0]:null}
+function qa(el,name){return el?[...el.getElementsByTagNameNS(NS,name)]:[]}
+function attr(el,name){return el?.getAttributeNS(NS,name)||el?.getAttribute('w:'+name)||el?.getAttribute(name)||''}
+function childEls(el,local){return [...(el?.childNodes||[])].filter(n=>n.nodeType===1 && (!local||n.localName===local))}
+function xml(s){return new DOMParser().parseFromString(s,'application/xml')}
+function esc(s){return String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]))}
+function escMd(s){return String(s??'').replace(/([\\`*_[\]<>])/g,'\\$1')}
+function toast(t){const e=document.getElementById('toast');e.textContent=t;e.classList.add('show');setTimeout(()=>e.classList.remove('show'),1600)}
+function addReport(level,title,text,status=''){state.report.push({level,title,text,status});renderReport()}
+function clearReport(){state.report=[];renderReport()}
+function renderReport(){
+ const box=document.getElementById('reportBody');document.getElementById('reportN').textContent=state.report.length?`(${state.report.length})`:'';
+ if(!state.report.length){box.innerHTML='<div class="empty">暂无转换警告。导入 Word 后会按 P0/P1/P2/P3 规则生成检查结果。</div>';return}
+ box.innerHTML=state.report.map(x=>`<div class="reportItem"><div class="reportTop"><strong style="font-size:12px">${esc(x.title)}</strong><span class="badge ${x.status||x.level.toLowerCase()}">${esc(x.status?x.status.toUpperCase():x.level)}</span></div><p>${esc(x.text)}</p></div>`).join('');
+}
+function cssv(n){return getComputedStyle(document.documentElement).getPropertyValue(n).trim()}
+function count(){document.getElementById('mdStat').textContent=mdEl.value.length+' 字符';document.getElementById('wordStat').textContent=(paper.innerText||'').replace(/\s/g,'').length+' 字';document.getElementById('assetStat').textContent=state.assets.size+' 个图片资源'}
+
+function inlineMdToHtml(s){
+ s=esc(s);
+ s=s.replace(/!\[([^\]]*)\]\(([^)]+)\)/g,(m,a,p)=>{const asset=state.assets.get(p);return asset?`<img src="${asset.url}" alt="${esc(a)}">`:`<img src="${esc(p)}" alt="${esc(a)}">`});
+ s=s.replace(/\[([^\]]+)\]\(([^)]+)\)/g,'<a href="$2">$1</a>');
+ s=s.replace(/`([^`]+)`/g,'<code>$1</code>');
+ s=s.replace(/~~\*\*\*([^*]+)\*\*\*~~/g,'<del><strong><em>$1</em></strong></del>');
+ s=s.replace(/\*\*\*([^*]+)\*\*\*/g,'<strong><em>$1</em></strong>');
+ s=s.replace(/~~\*\*([^*]+)\*\*~~/g,'<del><strong>$1</strong></del>');
+ s=s.replace(/\*\*([^*]+)\*\*/g,'<strong>$1</strong>');
+ s=s.replace(/~~([^~]+)~~/g,'<del>$1</del>');
+ s=s.replace(/\*([^*]+)\*/g,'<em>$1</em>');
+ s=s.replace(/&lt;u&gt;([\s\S]*?)&lt;\/u&gt;/g,'<u>$1</u>').replace(/&lt;sup&gt;([\s\S]*?)&lt;\/sup&gt;/g,'<sup>$1</sup>').replace(/&lt;sub&gt;([\s\S]*?)&lt;\/sub&gt;/g,'<sub>$1</sub>').replace(/&lt;mark&gt;([\s\S]*?)&lt;\/mark&gt;/g,'<mark>$1</mark>');
+ s=s.replace(/&lt;br\s*\/?&gt;/gi,'<br>');
+ return s;
+}
+function splitMdTable(line){let x=line.trim();if(x.startsWith('|'))x=x.slice(1);if(x.endsWith('|'))x=x.slice(0,-1);let a=[],c='',e=false;for(const ch of x){if(e){c+=ch;e=false;continue}if(ch==='\\'){e=true;c+=ch;continue}if(ch==='|'){a.push(c.trim());c=''}else c+=ch}a.push(c.trim());return a.map(v=>v.replace(/\\\|/g,'|'))}
+function isSep(l){return /^\s*\|?\s*:?-{3,}/.test(l)&&l.includes('|')}
+function mdToHtml(src){
+ const lines=src.replace(/\r/g,'').split('\n'),out=[];let i=0;
+ while(i<lines.length){
+  let line=lines[i],t=line.trim();if(!t){i++;continue}
+  if(/^```/.test(t)){const lang=t.slice(3).trim();let a=[];i++;while(i<lines.length&&!/^```/.test(lines[i].trim()))a.push(lines[i++]);if(i<lines.length)i++;out.push(`<pre data-lang="${esc(lang)}"><code>${esc(a.join('\n'))}</code></pre>`);continue}
+  if(/^######\s+/.test(t)){out.push('<h4>'+inlineMdToHtml(t.replace(/^######\s+/,''))+'</h4>');i++;continue}
+  if(/^#####\s+/.test(t)){out.push('<h4>'+inlineMdToHtml(t.replace(/^#####\s+/,''))+'</h4>');i++;continue}
+  if(/^####\s+/.test(t)){out.push('<h4>'+inlineMdToHtml(t.replace(/^####\s+/,''))+'</h4>');i++;continue}
+  if(/^###\s+/.test(t)){out.push('<h3>'+inlineMdToHtml(t.replace(/^###\s+/,''))+'</h3>');i++;continue}
+  if(/^##\s+/.test(t)){out.push('<h2>'+inlineMdToHtml(t.replace(/^##\s+/,''))+'</h2>');i++;continue}
+  if(/^#\s+/.test(t)){out.push('<h1>'+inlineMdToHtml(t.replace(/^#\s+/,''))+'</h1>');i++;continue}
+  if(/^::(title|desc|small|tip|warn|info)\s+/.test(t)){const m=t.match(/^::(\w+)\s+([\s\S]*)$/),k=m[1],x=inlineMdToHtml(m[2]);if(k==='title')out.push(`<div class="doc-title">${x}</div>`);else if(k==='desc')out.push(`<div class="desc">${x}</div>`);else if(k==='small')out.push(`<div class="small">${x}</div>`);else{const ico=k==='tip'?document.getElementById('tipIcon').value:k==='warn'?document.getElementById('warnIcon').value:document.getElementById('infoIcon').value;out.push(`<div class="callout" data-kind="${k}"><span class="ico">${esc(ico)}</span><div class="ct">${x}</div></div>`)}i++;continue}
+  if(/^---+$/.test(t)){out.push('<hr>');i++;continue}
+  if(/^>/.test(t)){let a=[];while(i<lines.length&&/^\s*>/.test(lines[i]))a.push(lines[i++].replace(/^\s*>\s?/,''));out.push('<blockquote><p>'+inlineMdToHtml(a.join('<br>'))+'</p></blockquote>');continue}
+  if(line.includes('|')&&i+1<lines.length&&isSep(lines[i+1])){const h=splitMdTable(line);i+=2;let b=[];while(i<lines.length&&lines[i].trim()&&lines[i].includes('|'))b.push(splitMdTable(lines[i++]));out.push('<table><thead><tr>'+h.map(x=>'<th>'+inlineMdToHtml(x)+'</th>').join('')+'</tr></thead><tbody>'+b.map(r=>'<tr>'+r.map(x=>'<td>'+inlineMdToHtml(x)+'</td>').join('')+'</tr>').join('')+'</tbody></table>');continue}
+  if(/^\s*[-*]\s+/.test(line)||/^\s*\d+\.\s+/.test(line)){
+    const baseIndent=(line.match(/^\s*/)||[''])[0].length,ordered=/^\s*\d+\.\s+/.test(line),tag=ordered?'ol':'ul';let items=[];
+    while(i<lines.length){
+      const m=lines[i].match(/^(\s*)(?:[-*]|\d+\.)\s+(.+)$/);if(!m||m[1].length<baseIndent)break;if(m[1].length===baseIndent)items.push(m[2]);i++;
+    }
+    out.push(`<${tag}>`+items.map(x=>'<li>'+inlineMdToHtml(x)+'</li>').join('')+`</${tag}>`);continue
+  }
+  if(/^\[\^[^\]]+\]:/.test(t)){out.push('<p class="small">'+inlineMdToHtml(t)+'</p>');i++;continue}
+  if(/^<table[\s>]/i.test(t)){let a=[];while(i<lines.length){a.push(lines[i]);if(/<\/table>/i.test(lines[i])){i++;break}i++}out.push(a.join('\n'));continue}
+  let a=[t];i++;while(i<lines.length&&lines[i].trim()&&!/^(#{1,6}\s|::|>|```|---+$|\[\^[^\]]+\]:)/.test(lines[i].trim())&&!(/^\s*[-*]\s+/.test(lines[i])||/^\s*\d+\.\s+/.test(lines[i]))&&!(lines[i].includes('|')&&i+1<lines.length&&isSep(lines[i+1])))a.push(lines[i++].trim());
+  out.push('<p>'+inlineMdToHtml(a.join(' '))+'</p>');
+ }
+ return out.join('\n')
+}
+function nodeInlineToMd(n){
+ if(n.nodeType===3)return n.nodeValue;if(n.nodeType!==1)return '';
+ const tag=n.tagName.toLowerCase();let inner=[...n.childNodes].map(nodeInlineToMd).join('');
+ if(tag==='strong'||tag==='b')return `**${inner}**`;if(tag==='em'||tag==='i')return `*${inner}*`;if(tag==='del'||tag==='s')return `~~${inner}~~`;if(tag==='u')return `<u>${inner}</u>`;if(tag==='sup')return `<sup>${inner}</sup>`;if(tag==='sub')return `<sub>${inner}</sub>`;if(tag==='mark')return `<mark>${inner}</mark>`;if(tag==='code')return `\`${inner}\``;if(tag==='a')return `[${inner}](${n.getAttribute('href')||''})`;if(tag==='img')return `![${n.getAttribute('alt')||''}](${findAssetPath(n.getAttribute('src'))||n.getAttribute('src')||''})`;if(tag==='br')return '<br>';return inner
+}
+function findAssetPath(url){for(const [p,a] of state.assets)if(a.url===url)return p;return ''}
+function htmlToMd(root){
+ let out=[];for(const n of root.childNodes){if(n.nodeType!==1)continue;const tag=n.tagName.toLowerCase();
+  if(n.classList.contains('doc-title'))out.push('::title '+nodeInlineToMd(n));
+  else if(tag==='h1')out.push('# '+nodeInlineToMd(n));else if(tag==='h2')out.push('## '+nodeInlineToMd(n));else if(tag==='h3')out.push('### '+nodeInlineToMd(n));else if(tag==='h4')out.push('#### '+nodeInlineToMd(n));
+  else if(tag==='p')out.push(nodeInlineToMd(n));else if(tag==='hr')out.push('---');
+  else if(tag==='blockquote')out.push('> '+nodeInlineToMd(n).replace(/\n/g,' '));
+  else if(tag==='pre'){const lang=n.dataset.lang||'';out.push('```'+lang+'\n'+(n.innerText||'')+'\n```')}
+  else if(tag==='ul'||tag==='ol')out.push(listDomToMd(n,0));
+  else if(tag==='table')out.push(tableDomToMd(n));
+  else if(n.classList.contains('desc'))out.push('::desc '+nodeInlineToMd(n));
+  else if(n.classList.contains('small'))out.push('::small '+nodeInlineToMd(n));
+  else if(n.classList.contains('callout')){const ct=n.querySelector('.ct')||n;out.push('::'+(n.dataset.kind||'info')+' '+nodeInlineToMd(ct))}
+ }
+ return out.filter(Boolean).join('\n\n').replace(/^\n+/,'').replace(/\n{3,}/g,'\n\n')
+}
+function listDomToMd(list,level){let out=[];[...list.children].forEach((li,idx)=>{if(li.tagName.toLowerCase()!=='li')return;let text='';for(const c of li.childNodes)if(!(c.nodeType===1&&['ul','ol'].includes(c.tagName.toLowerCase())))text+=nodeInlineToMd(c);out.push('  '.repeat(level)+(list.tagName.toLowerCase()==='ol'?'1. ':'- ')+text.trim());for(const c of li.children)if(['ul','ol'].includes(c.tagName.toLowerCase()))out.push(listDomToMd(c,level+1))});return out.join('\n')}
+function tableDomToMd(t){const rows=[...t.querySelectorAll(':scope > thead > tr,:scope > tbody > tr,:scope > tr')];if(!rows.length)return '';if([...t.querySelectorAll('td,th')].some(c=>c.colSpan>1||c.rowSpan>1||c.querySelector('ul,ol,img,table'))||Math.max(...rows.map(r=>r.children.length))>7)return t.outerHTML;const rr=rows.map(r=>[...r.children].map(c=>nodeInlineToMd(c).replace(/\|/g,'\\|').trim()));return ['| '+rr[0].join(' | ')+' |','| '+rr[0].map(()=> '---').join(' | ')+' |',...rr.slice(1).map(r=>'| '+r.join(' | ')+' |')].join('\n')}
+
+function syncPreview(){if(state.lock)return;state.lock=true;paper.innerHTML=mdToHtml(mdEl.value);count();state.lock=false}
+function syncMd(){if(state.lock)return;state.lock=true;mdEl.value=htmlToMd(paper);count();state.lock=false}
+mdEl.addEventListener('input',()=>{clearTimeout(window._m);window._m=setTimeout(syncPreview,100)});
+paper.addEventListener('input',()=>{clearTimeout(window._p);window._p=setTimeout(syncMd,150)});
+document.querySelectorAll('.chip').forEach(b=>b.onclick=()=>{const s=mdEl.selectionStart,e=mdEl.selectionEnd,v=b.dataset.insert;mdEl.setRangeText(v,s,e,'end');mdEl.focus();syncPreview()});
+document.querySelectorAll('[data-css]').forEach(i=>i.addEventListener('input',()=>document.documentElement.style.setProperty(i.dataset.css,i.value)));
+['tipIcon','warnIcon','infoIcon'].forEach(id=>document.getElementById(id).addEventListener('input',syncPreview));
+document.getElementById('styleBtn').onclick=()=>document.getElementById('styleDrawer').classList.add('open');document.getElementById('reportBtn').onclick=()=>document.getElementById('reportDrawer').classList.add('open');document.querySelectorAll('[data-close]').forEach(b=>b.onclick=()=>document.getElementById(b.dataset.close).classList.remove('open'));
+
+function relMap(doc){const m={};for(const r of doc.getElementsByTagName('Relationship'))m[r.getAttribute('Id')]={target:r.getAttribute('Target'),type:r.getAttribute('Type')};return m}
+function parseStyles(doc){const m={};for(const s of qa(doc,'style')){const id=attr(s,'styleId'),name=attr(q(s,'name'),'val'),outline=attr(q(s,'outlineLvl'),'val');m[id]={id,name,outline:outline!==''?+outline:null}}return m}
+function parseNumbering(doc){const abstract={},nums={};for(const a of qa(doc,'abstractNum')){const id=attr(a,'abstractNumId');abstract[id]={};for(const lvl of childEls(a,'lvl')){const il=+attr(lvl,'ilvl');abstract[id][il]=attr(q(lvl,'numFmt'),'val')||'bullet'}}for(const n of qa(doc,'num'))nums[attr(n,'numId')]=attr(q(n,'abstractNumId'),'val');return {abstract,nums}}
+function fmtForNum(numbering,numId,ilvl){const a=numbering.nums[numId];return numbering.abstract[a]?.[ilvl]||'bullet'}
+function parseFootnotes(doc,ctx){const m={};if(!doc)return m;for(const f of qa(doc,'footnote')){const id=attr(f,'id');if(+id<0)continue;const ps=childEls(f).filter(x=>x.localName==='p');m[id]=ps.map(p=>parseParagraph(p,ctx,{footnote:true}).text).join(' ').trim()}return m}
+function runText(run,ctx){
+ let text='';const rPr=q(run,'rPr');const bold=!!q(rPr,'b'),italic=!!q(rPr,'i'),strike=!!q(rPr,'strike'),underline=q(rPr,'u')&&attr(q(rPr,'u'),'val')!=='none',vert=attr(q(rPr,'vertAlign'),'val'),highlight=attr(q(rPr,'highlight'),'val');
+ const fonts=q(rPr,'rFonts'),font=[attr(fonts,'ascii'),attr(fonts,'hAnsi'),attr(fonts,'eastAsia')].join(' ');const mono=/Consolas|Courier|Mono|Menlo|Monaco|等线?代码/i.test(font);
+ for(const c of run.childNodes){if(c.nodeType!==1)continue;if(c.localName==='t'||c.localName==='delText')text+=c.textContent;else if(c.localName==='tab')text+='\t';else if(c.localName==='br'){const typ=attr(c,'type');text+=typ==='page'?'\n---\n':'<br>'}else if(c.localName==='footnoteReference')text+=`[^${attr(c,'id')}]`;else if(c.localName==='drawing'||c.localName==='pict')text+=imageFromNode(c,ctx)}
+ if(!text)return {text:'',mono};
+ let x=text;if(bold&&italic)x=`***${x}***`;else if(bold)x=`**${x}**`;else if(italic)x=`*${x}*`;if(strike)x=`~~${x}~~`;if(underline)x=`<u>${x}</u>`;if(vert==='superscript')x=`<sup>${x}</sup>`;if(vert==='subscript')x=`<sub>${x}</sub>`;if(highlight&&highlight!=='none')x=`<mark>${x}</mark>`;if(mono&&text.trim()&&!bold&&!italic)x='`'+text+'`';return {text:x,mono}
+}
+function imageFromNode(node,ctx){
+ const blips=[...node.getElementsByTagNameNS('http://schemas.openxmlformats.org/drawingml/2006/main','blip')];if(!blips.length)return '';
+ let rid=blips[0].getAttributeNS(RNS,'embed')||blips[0].getAttribute('r:embed');if(!rid)return '';const rel=ctx.rels[rid];if(!rel)return '';
+ let target=rel.target.replace(/^\.\.\//,'');if(!target.startsWith('media/'))target=target.replace(/^word\//,'');const key='word/'+target.replace(/^word\//,'');const asset=ctx.mediaByZipPath.get(key);if(!asset)return '';
+ let docPr=node.getElementsByTagNameNS('http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing','docPr')[0];const alt=docPr?.getAttribute('descr')||docPr?.getAttribute('title')||asset.name.replace(/\.[^.]+$/,'');
+ return `![${alt}](${asset.path})`
+}
+function inlineChildren(p,ctx){
+ let x='',monoCount=0,totalRuns=0;
+ for(const c of p.childNodes){if(c.nodeType!==1)continue;
+  if(c.localName==='r'){const r=runText(c,ctx);x+=r.text;totalRuns++;if(r.mono)monoCount++}
+  else if(c.localName==='hyperlink'){let tx='';for(const r of childEls(c,'r'))tx+=runText(r,ctx).text;const rid=c.getAttributeNS(RNS,'id')||c.getAttribute('r:id'),anchor=attr(c,'anchor'),url=rid&&ctx.rels[rid]?ctx.rels[rid].target:(anchor?'#'+anchor:'');x+=url?`[${tx}](${url})`:tx}
+  else if(c.localName==='fldSimple'){const instr=attr(c,'instr');if(!/TOC/i.test(instr))x+=c.textContent}
+  else if(c.localName==='ins'){for(const r of childEls(c,'r')){const rr=runText(r,ctx);x+=rr.text;totalRuns++;if(rr.mono)monoCount++}}
+  else if(c.localName==='del'){/* Track Changes: 只保留最终版本，删除内容丢弃 */}
+  else if(c.localName==='sdt'||c.localName==='smartTag'){for(const r of qa(c,'r')){const rr=runText(r,ctx);x+=rr.text;totalRuns++;if(rr.mono)monoCount++}}
+  else if(c.localName==='oMath'||c.localName==='oMathPara'){const tx=c.textContent.trim();x+=tx?`$${tx}$`:'';addReport('P1','公式采用文本降级','检测到 Word 公式。浏览器版无法可靠把 OMML 转为 LaTeX，已保留可提取文本并使用 $...$ 包裹。','warn')}
+ }
+ return {text:x,monoRatio:totalRuns?monoCount/totalRuns:0}
+}
+function parseParagraph(p,ctx,opt={}){
+ const pPr=q(p,'pPr'),sid=attr(q(pPr,'pStyle'),'val'),st=ctx.styles[sid]||{},styleName=st.name||sid||'',outlineRaw=attr(q(pPr,'outlineLvl'),'val');let heading=null,title=false;
+ if(/^(Title|标题)$/i.test(styleName))title=true;
+ const hm=styleName.match(/(?:Heading|标题)\s*([1-6])/i);if(hm)heading=+hm[1];else if(outlineRaw!=='')heading=+outlineRaw+1;else if(st.outline!==null&&st.outline!==undefined)heading=st.outline+1;
+ const numPr=q(pPr,'numPr'),ilvl=numPr?+(attr(q(numPr,'ilvl'),'val')||0):null,numId=numPr?attr(q(numPr,'numId'),'val'):null;const listFmt=numPr?fmtForNum(ctx.numbering,numId,ilvl):null;
+ const fieldInstr=qa(p,'instrText').map(x=>x.textContent).join(' ');if(/\bTOC\b/i.test(fieldInstr))return {text:'',heading:null,title:false,list:null,quote:false,code:false,styleName};
+ const raw=inlineChildren(p,ctx);let text=raw.text.trim();
+ const txbx=qa(p,'txbxContent');if(txbx.length&&!text){text=txbx.map(x=>x.textContent.trim()).filter(Boolean).join(' ');if(text)addReport('P1','文本框内容已降级为普通段落','检测到 Word 文本框，已提取其中的文本内容并忽略位置与边框。','ok')}
+ const quote=/Quote|引用/i.test(styleName),code=/Code|代码/i.test(styleName)||(raw.monoRatio>.8&&text.includes('<br>'));
+ return {text,heading,title,list:numPr?{level:ilvl,ordered:listFmt!=='bullet'}:null,quote,code,styleName}
+}
+function parseTable(tbl,ctx){
+ const tblPr=q(tbl,'tblPr'),borders=q(tblPr,'tblBorders');let explicitNoBorder=false;if(borders){const bs=childEls(borders);explicitNoBorder=bs.length&&bs.every(b=>['nil','none'].includes(attr(b,'val')))}
+ const rows=childEls(tbl,'tr');let data=[],complex=false,hasMerge=false,maxCols=0;
+ for(const tr of rows){let rr=[];for(const tc of childEls(tr,'tc')){const tcPr=q(tc,'tcPr'),span=+(attr(q(tcPr,'gridSpan'),'val')||1),vm=q(tcPr,'vMerge'),vmerge=vm?(attr(vm,'val')||'continue'):'';if(span>1||vm){complex=true;hasMerge=true}
+   const nested=childEls(tc,'tbl').length>0;const ps=childEls(tc,'p');let parts=[],hasList=false,hasImage=false;for(const p of ps){const pp=parseParagraph(p,ctx);if(pp.list)hasList=true;if(/!\[.*\]\(/.test(pp.text))hasImage=true;if(pp.text)parts.push(pp.text)}if(nested||hasList||hasImage)complex=true;rr.push({text:parts.join('<br>'),span,vmerge,nested,hasList,hasImage})}maxCols=Math.max(maxCols,rr.reduce((s,c)=>s+c.span,0));data.push(rr)}
+ if(explicitNoBorder){addReport('P3','无边框布局表格已拆段落','检测到明确无边框表格，按布局表格处理，不输出 Markdown 表格。','ok');return data.flat().map(c=>c.text).filter(Boolean).join('\n\n')}
+ if(maxCols>7){complex=true;addReport('P1','宽表格降级为 HTML',`表格最大 ${maxCols} 列，超过 7 列，避免 Markdown 表格过宽。`,'warn')}
+ if(complex){if(hasMerge)addReport('P1','合并单元格降级为 HTML','检测到 colspan / rowspan 信息，使用 HTML table 保留结构。','ok');return tableToHtml(data)}
+ const matrix=data.map(r=>r.map(c=>c.text.replace(/\|/g,'\\|')));if(!matrix.length)return '';const cols=Math.max(...matrix.map(r=>r.length));matrix.forEach(r=>{while(r.length<cols)r.push('')});return ['| '+matrix[0].join(' | ')+' |','| '+Array(cols).fill('---').join(' | ')+' |',...matrix.slice(1).map(r=>'| '+r.join(' | ')+' |')].join('\n')
+}
+function tableToHtml(data){
+ let html=['<table>'];let active={};for(let r=0;r<data.length;r++){html.push('<tr>');let col=0;for(const c of data[r]){while(active[col]>0){active[col]--;col++}if(c.vmerge==='continue'){if(active[col]>0)active[col]--;col+=c.span;continue}
+   let rowspan=1;if(c.vmerge==='restart'){for(let rr=r+1;rr<data.length;rr++){let pos=0,found=null;for(const cc of data[rr]){if(pos===col){found=cc;break}pos+=cc.span}if(found&&found.vmerge==='continue')rowspan++;else break}for(let k=0;k<c.span;k++)active[col+k]=rowspan-1}
+   const attrs=(c.span>1?` colspan="${c.span}"`:'')+(rowspan>1?` rowspan="${rowspan}"`:'');html.push(`<td${attrs}>${inlineMdToHtml(c.text)}</td>`);col+=c.span}
+  html.push('</tr>')}html.push('</table>');return html.join('\n')
+}
+async function importDocx(file){
+ clearReport();state.assets.clear();state.sourceName=file.name.replace(/\.docx$/i,'')||'document';
+ if(!window.JSZip)throw new Error('JSZip 未加载，请检查网络');
+ const zip=await JSZip.loadAsync(await file.arrayBuffer());
+ const get=async p=>zip.file(p)?xml(await zip.file(p).async('string')):null;
+ const doc=await get('word/document.xml');if(!doc)throw new Error('文件损坏：缺少 word/document.xml');
+ const styles=parseStyles(await get('word/styles.xml'));const numbering=parseNumbering(await get('word/numbering.xml')||xml('<w:numbering xmlns:w="'+NS+'"/>'));const rels=relMap(await get('word/_rels/document.xml.rels')||xml('<Relationships/>'));
+ const mediaByZipPath=new Map();let idx=1;
+ for(const [rid,rel] of Object.entries(rels)){if(!/image/i.test(rel.type||''))continue;let target=rel.target.replace(/^\.\.\//,'');let zp='word/'+target.replace(/^word\//,'');const f=zip.file(zp);if(!f)continue;const blob=await f.async('blob');const ext=(zp.match(/\.([^.]+)$/)||[])[1]?.toLowerCase()||'bin';const safeExt=['png','jpg','jpeg','gif','webp','svg'].includes(ext)?ext:ext;const path=`images/image-${String(idx).padStart(3,'0')}.${safeExt}`;const url=URL.createObjectURL(blob);const a={path,blob,url,name:path.split('/').pop(),original:zp};state.assets.set(path,a);mediaByZipPath.set(zp,a);if(ext==='emf'||ext==='wmf')addReport('P1','矢量图片保留原格式',`检测到 ${ext.toUpperCase()}。浏览器无法可靠转 PNG，已保留原始文件并在 MD 包中输出。`,'warn');idx++}
+ const ctx={styles,numbering,rels,mediaByZipPath};ctx.footnotes=parseFootnotes(await get('word/footnotes.xml'),ctx);
+ const body=q(doc,'body');let blocks=[],titleSeen=false,titleShift=false,lastHeading=0,listStack=[];
+ function flushLists(){if(!listStack.length)return;blocks.push(listStack.join('\n'));listStack=[]}
+ for(const n of childEls(body)){
+  if(n.localName==='p'){const p=parseParagraph(n,ctx);if(!p.text&&!p.title&&!p.heading)continue;
+   if(p.list){const prefix='  '.repeat(p.list.level)+(p.list.ordered?'1. ':'- ');listStack.push(prefix+p.text);continue}else flushLists();
+   if(p.title&&!titleSeen){blocks.push('::title '+p.text);titleSeen=true;titleShift=true;continue}
+   if(p.heading){let lvl=Math.min(6,p.heading+(titleShift?1:0));if(lastHeading&&lvl>lastHeading+1)addReport('P0','标题层级存在跳级',`检测到 H${lastHeading} → H${lvl}。已按原始相对层级保留，请在导出前确认。`,'warn');lastHeading=lvl;blocks.push('#'.repeat(lvl)+' '+p.text);continue}
+   if(p.quote){blocks.push('> '+p.text);continue}
+   if(p.code){blocks.push('```text\n'+p.text.replace(/<br>/g,'\n').replace(/^`|`$/g,'')+'\n```');continue}
+   blocks.push(p.text)
+  }else if(n.localName==='tbl'){flushLists();blocks.push(parseTable(n,ctx))}
+ }
+ flushLists();
+ const footEntries=Object.entries(ctx.footnotes).filter(([,v])=>v);if(footEntries.length){blocks.push(footEntries.map(([id,v])=>`[^${id}]: ${v}`).join('\n'));addReport('P1','脚注已转为 GFM 脚注',`共转换 ${footEntries.length} 个脚注。`,'ok')}
+ mdEl.value=blocks.filter(Boolean).join('\n\n').replace(/^\n+/,'').replace(/\n{3,}/g,'\n\n');
+ runSelfCheck();syncPreview();count()
+}
+function runSelfCheck(){
+ const s=mdEl.value,lines=s.split(/\r?\n/);const heads=lines.map(l=>{const m=l.match(/^(#{1,6})\s+(.+)/);return m?m[1].length:null}).filter(Boolean);for(let i=1;i<heads.length;i++)if(heads[i]>heads[i-1]+1)addReport('P0','自检：标题跳级',`H${heads[i-1]} → H${heads[i]}。规范要求检查层级连续性。`,'warn');
+ if(lines.some(l=>/^#{1,6}\s*$/.test(l)))addReport('P0','自检：空标题','检测到 # 后无内容的标题。','warn');
+ const tbls=[];for(let i=0;i<lines.length-1;i++)if(lines[i].includes('|')&&isSep(lines[i+1])){let j=i,a=[];while(j<lines.length&&lines[j].includes('|')&&lines[j].trim())a.push(lines[j++]);tbls.push(a);i=j}
+ for(const t of tbls){const counts=t.map(l=>(l.match(/(?<!\\)\|/g)||[]).length);if(new Set(counts).size>1)addReport('P0','自检：Markdown 表格列数不一致','某个表格每行 | 数量不一致，请检查。','warn')}
+ const imgPaths=[...s.matchAll(/!\[[^\]]*\]\((images\/[^)]+)\)/g)].map(m=>m[1]);for(const p of imgPaths)if(!state.assets.has(p))addReport('P0','自检：图片资源缺失',`${p} 在当前资源池中不存在。`,'warn');
+ if(/<(?!(table|\/table|tr|\/tr|td|\/td|th|\/th|u|\/u|sup|\/sup|sub|\/sub|mark|\/mark|br)\b)[^>]+>/i.test(s))addReport('P1','自检：发现非白名单 HTML','除复杂表格与行内降级标签外，发现其它 HTML，请确认是否需要保留。','warn')
+ if(!state.report.some(r=>r.status==='warn'))addReport('P0','核心自检通过','未发现明显的标题、表格、图片路径结构错误。','ok')
+}
+document.getElementById('wordFile').addEventListener('change',async e=>{const f=e.target.files[0];if(!f)return;try{await importDocx(f);toast('Word 已按规范导入')}catch(err){addReport('P0','文件解析失败',err.message,'warn');alert('导入失败：'+err.message)}e.target.value=''});
+document.getElementById('mdFile').addEventListener('change',async e=>{const f=e.target.files[0];if(!f)return;state.sourceName=f.name.replace(/\.(md|txt)$/i,'')||'document';mdEl.value=(await f.text()).replace(/^\uFEFF/,'');clearReport();runSelfCheck();syncPreview();toast('Markdown 已导入');e.target.value=''});
+
+function download(blob,name){const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1200)}
+document.getElementById('exportMd').onclick=()=>{runSelfCheck();download(new Blob([mdEl.value],{type:'text/markdown;charset=utf-8'}),state.sourceName+'.md');toast('Markdown 已导出')};
+document.getElementById('exportZip').onclick=async()=>{if(!window.JSZip){alert('JSZip 未加载');return}runSelfCheck();const z=new JSZip();z.file(state.sourceName+'.md',mdEl.value);for(const [p,a] of state.assets)z.file(p,a.blob);z.file('转换报告.txt',state.report.map(r=>`[${r.level}] ${r.title}\n${r.text}`).join('\n\n'));download(await z.generateAsync({type:'blob'}),state.sourceName+'-md-package.zip');toast('MD 包已导出')};
+
+function hp(px){return Math.round(parseFloat(px||'14')*1.5)}function hx(v){return String(v||'#000').replace('#','').toUpperCase()}
+function parseInlineRuns(text,D,size,color){
+ const runs=[];let pos=0;const re=/(\*\*\*.+?\*\*\*|\*\*.+?\*\*|\*[^*]+?\*|~~.+?~~|`[^`]+?`|<u>.*?<\/u>|<sup>.*?<\/sup>|<sub>.*?<\/sub>|<mark>.*?<\/mark>)/g;let m;
+ while((m=re.exec(text))){if(m.index>pos)runs.push(new D.TextRun({text:text.slice(pos,m.index),size,color}));let x=m[0],opt={size,color};if(x.startsWith('***')){opt.bold=true;opt.italics=true;x=x.slice(3,-3)}else if(x.startsWith('**')){opt.bold=true;x=x.slice(2,-2)}else if(x.startsWith('*')){opt.italics=true;x=x.slice(1,-1)}else if(x.startsWith('~~')){opt.strike=true;x=x.slice(2,-2)}else if(x.startsWith('`')){opt.font='Consolas';x=x.slice(1,-1)}else if(x.startsWith('<u>')){opt.underline={};x=x.slice(3,-4)}else if(x.startsWith('<sup>')){opt.superScript=true;x=x.slice(5,-6)}else if(x.startsWith('<sub>')){opt.subScript=true;x=x.slice(5,-6)}else if(x.startsWith('<mark>')){opt.highlight='yellow';x=x.slice(6,-7)}runs.push(new D.TextRun({...opt,text:x}));pos=re.lastIndex}if(pos<text.length)runs.push(new D.TextRun({text:text.slice(pos),size,color}));return runs
+}
+async function exportWord(){
+ if(!window.docx){alert('Word 导出库未加载，请检查网络');return}
+ const D=window.docx,children=[],lines=mdEl.value.split(/\r?\n/);let i=0;const bodySize=hp(cssv('--body-size')),bodyColor=hx(cssv('--body-color'));
+ while(i<lines.length){const l=lines[i],t=l.trim();if(!t){i++;continue}
+  if(/^```/.test(t)){let lang=t.slice(3).trim(),a=[];i++;while(i<lines.length&&!/^```/.test(lines[i].trim()))a.push(lines[i++]);if(i<lines.length)i++;children.push(new D.Paragraph({children:[new D.TextRun({text:a.join('\n'),font:'Consolas',size:20})],shading:{fill:'F2F4F7'},spacing:{before:120,after:160}}));continue}
+  let m=t.match(/^(#{1,6})\s+(.+)$/);if(m){const lvl=m[1].length,sz=hp(cssv('--h'+Math.min(4,lvl)+'-size')||'16px'),col=hx(cssv('--h'+Math.min(4,lvl)+'-color')||'#303846');children.push(new D.Paragraph({children:[new D.TextRun({text:m[2],bold:true,size:sz,color:col})],heading:lvl===1?D.HeadingLevel.HEADING_1:lvl===2?D.HeadingLevel.HEADING_2:lvl===3?D.HeadingLevel.HEADING_3:D.HeadingLevel.HEADING_4,spacing:{before:240,after:120}}));i++;continue}
+  if(/^::title\s+/.test(t)){children.push(new D.Paragraph({children:[new D.TextRun({text:t.replace(/^::title\s+/,''),bold:true,size:hp(cssv('--title-size')),color:hx(cssv('--title-color'))})],spacing:{after:240}}));i++;continue}
+  if(/^::desc\s+/.test(t)){children.push(new D.Paragraph({children:parseInlineRuns(t.replace(/^::desc\s+/,''),D,hp(cssv('--desc-size')),hx(cssv('--desc-color'))),shading:{fill:hx(cssv('--desc-bg'))},spacing:{before:100,after:160}}));i++;continue}
+  if(/^::small\s+/.test(t)){children.push(new D.Paragraph({children:parseInlineRuns(t.replace(/^::small\s+/,''),D,hp(cssv('--small-size')),hx(cssv('--small-color'))),spacing:{after:120}}));i++;continue}
+  if(/^::(tip|warn|info)\s+/.test(t)){const mm=t.match(/^::(\w+)\s+(.+)$/),ico=mm[1]==='tip'?document.getElementById('tipIcon').value:mm[1]==='warn'?document.getElementById('warnIcon').value:document.getElementById('infoIcon').value;children.push(new D.Paragraph({children:[new D.TextRun({text:ico+' ',size:hp(cssv('--callout-size'))}),...parseInlineRuns(mm[2],D,hp(cssv('--callout-size')),hx(cssv('--callout-color')))],shading:{fill:hx(cssv('--callout-bg'))},spacing:{before:100,after:150}}));i++;continue}
+  if(/^>\s?/.test(t)){children.push(new D.Paragraph({children:parseInlineRuns(t.replace(/^>\s?/,''),D,bodySize,hx(cssv('--quote-color'))),indent:{left:320},shading:{fill:hx(cssv('--quote-bg'))},spacing:{before:90,after:130}}));i++;continue}
+  if(/^\s*(?:[-*]|\d+\.)\s+/.test(l)){const mm=l.match(/^(\s*)([-*]|\d+\.)\s+(.+)$/),lev=Math.floor(mm[1].length/2),ordered=mm[2]!== '-'&&mm[2]!=='*';children.push(new D.Paragraph({children:parseInlineRuns(mm[3],D,bodySize,bodyColor),bullet:ordered?undefined:{level:lev},numbering:ordered?{reference:'default-numbering',level:lev}:undefined,spacing:{after:60}}));i++;continue}
+  if(l.includes('|')&&i+1<lines.length&&isSep(lines[i+1])){const h=splitMdTable(l);i+=2;let rr=[h];while(i<lines.length&&lines[i].trim()&&lines[i].includes('|'))rr.push(splitMdTable(lines[i++]));children.push(new D.Table({rows:rr.map((r,ri)=>new D.TableRow({children:r.map(c=>new D.TableCell({children:[new D.Paragraph({children:parseInlineRuns(c,D,20,bodyColor)})],shading:ri===0?{fill:hx(cssv('--table-head-bg'))}:undefined}))})),width:{size:100,type:D.WidthType.PERCENTAGE}}));continue}
+  if(/^---+$/.test(t)){children.push(new D.Paragraph({text:'',border:{bottom:{color:'D9DEE7',style:D.BorderStyle.SINGLE,size:4,space:1}},spacing:{before:100,after:160}}));i++;continue}
+  if(/^<table[\s>]/i.test(t)){let a=[];while(i<lines.length){a.push(lines[i]);if(/<\/table>/i.test(lines[i])){i++;break}i++}children.push(new D.Paragraph({children:[new D.TextRun({text:a.join('\n'),font:'Consolas',size:18,color:'667085'})]}));continue}
+  children.push(new D.Paragraph({children:parseInlineRuns(t,D,bodySize,bodyColor),spacing:{after:160}}));i++
+ }
+ const doc=new D.Document({numbering:{config:[{reference:'default-numbering',levels:Array.from({length:9},(_,level)=>({level,format:'decimal',text:'%'+(level+1)+'.',alignment:D.AlignmentType.LEFT,style:{paragraph:{indent:{left:720*(level+1),hanging:360}}}}))}]},styles:{default:{document:{run:{font:'Microsoft YaHei',size:bodySize,color:bodyColor},paragraph:{spacing:{line:Math.round(parseFloat(cssv('--body-lh'))*240)}}}}},sections:[{properties:{page:{margin:{top:900,right:900,bottom:900,left:900}}},children}]});
+ download(await D.Packer.toBlob(doc),state.sourceName+'.docx');toast('Word 已导出')
+}
+document.getElementById('exportWord').onclick=exportWord;
+
+mdEl.value=`::title Word ↔ Markdown 转换示例
+
+::desc 这是一份规范驱动的双向文档。结构转换与视觉样式分离：Markdown 负责语义，样式面板负责呈现。
+
+# 一级标题
+
+普通正文支持 **加粗**、*斜体*、***加粗斜体***、~~删除线~~、<u>下划线</u>、<sup>上标</sup>、<sub>下标</sub> 和 <mark>高亮</mark>。
+
+::small 注：小字、来源、补充说明可以单独定义样式。
+
+## 图标提示
+
+::tip 这里是建议、重点或操作提示。
+
+::warn 这里是注意事项或风险提示。
+
+> 这里是引用段落。
+
+## 表格
+
+| 类型 | Markdown | Word |
+| --- | --- | --- |
+| 标题 | # / ## | Heading |
+| 描述 | ::desc | 描述块 |
+| 小字 | ::small | 注释样式 |
+
+\`\`\`text
+代码块会保持等宽字体。
+\`\`\`
+`;
+renderReport();syncPreview();count();
+</script>
+</body>
+</html>

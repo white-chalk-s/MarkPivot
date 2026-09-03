@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Excel ↔ Markdown Studio</title>
+<style>
+:root{
+  --bg:#f5f7fb;--panel:#fff;--line:#e5e9f0;--text:#18202a;--muted:#7a8493;
+  --accent:#4f6ef7;--accent-soft:#eef2ff;--shadow:0 10px 30px rgba(24,32,42,.08);
+}
+*{box-sizing:border-box}
+body{margin:0;font-family:Inter,"PingFang SC","Microsoft YaHei",system-ui,sans-serif;background:var(--bg);color:var(--text)}
+.app{height:100vh;display:flex;flex-direction:column}
+.topbar{height:66px;background:rgba(255,255,255,.92);border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between;padding:0 20px;backdrop-filter:blur(12px)}
+.brand{display:flex;align-items:center;gap:12px}
+.logo{width:36px;height:36px;border-radius:10px;background:linear-gradient(135deg,#4f6ef7,#7f94ff);display:grid;place-items:center;color:#fff;font-weight:800}
+.brand h1{font-size:17px;margin:0}.brand p{margin:2px 0 0;color:var(--muted);font-size:12px}
+.actions{display:flex;gap:8px;flex-wrap:wrap}
+button,.fileBtn{border:1px solid var(--line);background:#fff;color:var(--text);padding:9px 12px;border-radius:9px;font-size:13px;cursor:pointer;transition:.18s}
+button:hover,.fileBtn:hover{border-color:#c9d1de;background:#fafbfe}
+button.primary{background:var(--accent);color:#fff;border-color:var(--accent)}
+button.primary:hover{filter:brightness(.98)}
+.fileBtn input{display:none}
+.sheetbar{height:46px;padding:7px 14px;display:flex;align-items:center;gap:8px;border-bottom:1px solid var(--line);background:#fbfcfe;overflow:auto}
+.sheetTab{padding:7px 11px;border:1px solid transparent;border-radius:8px;color:#5f6877;font-size:12px;cursor:pointer;white-space:nowrap}
+.sheetTab.active{background:var(--accent-soft);color:var(--accent);border-color:#dfe5ff;font-weight:600}
+.main{flex:1;min-height:0;display:grid;grid-template-columns:1fr 1fr;gap:12px;padding:12px}
+.panel{min-width:0;min-height:0;background:var(--panel);border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow);display:flex;flex-direction:column;overflow:hidden}
+.panelHead{height:48px;padding:0 14px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--line)}
+.panelHead strong{font-size:14px}.hint{font-size:12px;color:var(--muted)}
+.tableWrap{flex:1;overflow:auto;background:#fff}
+table{border-collapse:separate;border-spacing:0;min-width:100%;font-size:13px}
+th,td{border-right:1px solid var(--line);border-bottom:1px solid var(--line);padding:0;min-width:110px;height:34px}
+th{position:sticky;top:0;z-index:2;background:#f8f9fc;font-weight:600;color:#667085;text-align:center}
+td:first-child,th:first-child{position:sticky;left:0;z-index:1}
+th:first-child{z-index:3;background:#f1f3f7;min-width:42px;width:42px}
+.rownum{background:#f8f9fc;color:#98a2b3;text-align:center;min-width:42px!important;width:42px!important}
+.cell{width:100%;height:100%;border:0;outline:none;padding:7px 9px;font:inherit;color:inherit;background:transparent}
+.cell:focus{box-shadow:inset 0 0 0 2px var(--accent);background:#fff}
+.mdarea{flex:1;width:100%;resize:none;border:0;outline:none;padding:18px 20px;font:13px/1.7 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;color:#2f3640;background:#fbfbfc;white-space:pre;overflow:auto}.mdview{flex:1;overflow:auto;background:#fbfbfc}.markdown-body{max-width:920px;margin:0 auto;padding:28px 34px 42px;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;font-size:15px;line-height:1.75;color:#2e3338}.markdown-body h1,.markdown-body h2,.markdown-body h3{line-height:1.35;color:#1f2328;margin:1.6em 0 .65em;font-weight:700}.markdown-body h1{font-size:1.85em;border-bottom:1px solid #e6e8ec;padding-bottom:.35em}.markdown-body h2{font-size:1.45em}.markdown-body h3{font-size:1.18em}.markdown-body p{margin:.8em 0}.md-table-wrap{width:100%;overflow-x:auto;margin:14px 0 24px;border:1px solid #dfe3e8;border-radius:8px;background:#fff}.markdown-body table{width:max-content;min-width:100%;border-collapse:collapse;border-spacing:0;font-size:14px}.markdown-body th,.markdown-body td{height:auto;min-width:120px;max-width:320px;padding:10px 14px;border-right:1px solid #e5e7eb;border-bottom:1px solid #e5e7eb;text-align:left;vertical-align:top;white-space:normal;word-break:break-word;background:#fff}.markdown-body th{position:static;background:#f6f7f9;color:#343a40;font-weight:650}.markdown-body tr:last-child td{border-bottom:0}.markdown-body th:last-child,.markdown-body td:last-child{border-right:0}.markdown-body code{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;background:#eef0f3;padding:.12em .35em;border-radius:4px;font-size:.92em}.viewSwitch{display:flex;gap:4px;background:#f3f5f8;padding:3px;border-radius:8px}.viewSwitch button{padding:5px 9px;border:0;background:transparent;color:#737b87;border-radius:6px;font-size:12px}.viewSwitch button.active{background:#fff;color:#2f3640;box-shadow:0 1px 3px rgba(0,0,0,.08)}
+.status{height:30px;border-top:1px solid var(--line);display:flex;align-items:center;justify-content:space-between;padding:0 12px;color:var(--muted);font-size:11px;background:#fbfcfe}
+.empty{padding:30px;color:var(--muted);font-size:13px}
+.toast{position:fixed;right:20px;bottom:20px;background:#18202a;color:#fff;padding:10px 14px;border-radius:10px;font-size:12px;opacity:0;transform:translateY(8px);transition:.2s;pointer-events:none}
+.toast.show{opacity:1;transform:none}
+@media(max-width:900px){.main{grid-template-columns:1fr;grid-template-rows:1fr 1fr}.topbar{height:auto;padding:12px;gap:10px;align-items:flex-start}.actions{justify-content:flex-end}}
+</style>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+</head>
+<body>
+<div class="app">
+  <div class="topbar">
+    <div class="brand">
+      <div class="logo">X↔M</div>
+      <div><h1>Excel ↔ Markdown Studio</h1><p>Excel 表格与 Markdown Table 双向转换</p></div>
+    </div>
+    <div class="actions">
+      <label class="fileBtn">导入 Excel<input id="excelFile" type="file" accept=".xlsx,.xls,.csv" /></label>
+      <label class="fileBtn">导入 MD<input id="mdFile" type="file" accept=".md,.txt" /></label>
+      <button id="newSheet">+ Sheet</button>
+      <button id="exportMd">导出 MD</button>
+      <button id="exportExcel" class="primary">导出 Excel</button>
+    </div>
+  </div>
+  <div id="sheetbar" class="sheetbar"></div>
+  <div class="main">
+    <section class="panel">
+      <div class="panelHead"><strong>Excel / 表格</strong><span class="hint">直接改单元格，右侧自动同步</span></div>
+      <div id="tableWrap" class="tableWrap"></div>
+      <div class="status"><span id="excelStatus">0 行 × 0 列</span><span>首行作为 Markdown 表头</span></div>
+    </section>
+    <section class="panel">
+      <div class="panelHead"><strong>Markdown</strong><div class="viewSwitch"><button id="previewBtn" class="active">预览</button><button id="sourceBtn">源码</button></div></div>
+      <div id="mdview" class="mdview"><div id="markdownBody" class="markdown-body"></div></div>
+      <textarea id="mdarea" class="mdarea" spellcheck="false" style="display:none"></textarea>
+      <div class="status"><span id="mdStatus">0 字符</span><span>支持标准 Markdown Table</span></div>
+    </section>
+  </div>
+</div>
+<div id="toast" class="toast"></div>
+<script>
+const state = { sheets:[{name:'Sheet1', data:[['姓名','部门','状态'],['张三','产品','进行中'],['李四','研发','已完成']]}], active:0, lock:false };
+
+const $ = s => document.querySelector(s);
+const sheetbar = $('#sheetbar'), tableWrap=$('#tableWrap'), mdarea=$('#mdarea'), mdview=$('#mdview'), markdownBody=$('#markdownBody');
+
+function toast(msg){ const el=$('#toast'); el.textContent=msg; el.classList.add('show'); setTimeout(()=>el.classList.remove('show'),1600); }
+
+function escapeHTML(v){ return String(v??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+function inlineMD(v){
+  return escapeHTML(v)
+    .replace(/`([^`]+)`/g,'<code>$1</code>')
+    .replace(/\*\*([^*]+)\*\*/g,'<strong>$1</strong>')
+    .replace(/\*([^*]+)\*/g,'<em>$1</em>')
+    .replace(/&lt;br\s*\/?&gt;/gi,'<br>');
+}
+function renderMarkdown(md){
+  const lines=md.split(/\r?\n/); let html=''; let i=0;
+  while(i<lines.length){
+    const line=lines[i];
+    if(!line.trim()){ i++; continue; }
+    const hm=line.match(/^(#{1,6})\s+(.*)$/);
+    if(hm){ const n=Math.min(3,hm[1].length); html+=`<h${n}>${inlineMD(hm[2])}</h${n}>`; i++; continue; }
+    if(line.includes('|') && i+1<lines.length){
+      const h=splitMDRow(line), sep=splitMDRow(lines[i+1]);
+      if(sep.length===h.length && isSepRow(sep)){
+        i+=2; const rows=[];
+        while(i<lines.length && lines[i].trim() && lines[i].includes('|')){ rows.push(splitMDRow(lines[i])); i++; }
+        html+='<div class="md-table-wrap"><table><thead><tr>'+h.map(c=>`<th>${inlineMD(c)}</th>`).join('')+'</tr></thead><tbody>'+
+          rows.map(r=>'<tr>'+h.map((_,c)=>`<td>${inlineMD(r[c]??'')}</td>`).join('')+'</tr>').join('')+'</tbody></table></div>';
+        continue;
+      }
+    }
+    const para=[]; while(i<lines.length && lines[i].trim() && !/^(#{1,6})\s+/.test(lines[i])){ para.push(lines[i].trim()); i++; }
+    html+=`<p>${inlineMD(para.join(' '))}</p>`;
+  }
+  markdownBody.innerHTML=html || '<div class="empty">这里会以 Obsidian 阅读视图的方式显示 Markdown。</div>';
+}
+function setMdMode(mode){
+  const preview=mode==='preview'; mdview.style.display=preview?'block':'none'; mdarea.style.display=preview?'none':'block';
+  $('#previewBtn').classList.toggle('active',preview); $('#sourceBtn').classList.toggle('active',!preview);
+  if(preview) renderMarkdown(mdarea.value); else mdarea.focus();
+}
+
+function activeSheet(){ return state.sheets[state.active]; }
+function normData(data){
+  const rows = (data||[]).map(r => (r||[]).map(v => v==null ? '' : String(v)));
+  let max = Math.max(1, ...rows.map(r=>r.length));
+  if(!rows.length) rows.push(['']);
+  return rows.map(r => [...r, ...Array(max-r.length).fill('')]);
+}
+function escMD(v){ return String(v??'').replace(/\|/g,'\\|').replace(/\r?\n/g,'<br>'); }
+function toMarkdown(data){
+  data=normData(data);
+  const cols=data[0].length;
+  const head=data[0];
+  const body=data.slice(1);
+  const line = r => '| ' + Array.from({length:cols},(_,i)=>escMD(r[i]??'')).join(' | ') + ' |';
+  return [line(head), '| '+Array(cols).fill('---').join(' | ')+' |', ...body.map(line)].join('\n');
+}
+function splitMDRow(line){
+  line=line.trim();
+  if(line.startsWith('|')) line=line.slice(1);
+  if(line.endsWith('|')) line=line.slice(0,-1);
+  const out=[]; let cur='', esc=false;
+  for(const ch of line){
+    if(esc){ cur+=ch; esc=false; continue; }
+    if(ch==='\\'){ esc=true; cur+=ch; continue; }
+    if(ch==='|'){ out.push(cur.trim()); cur=''; } else cur+=ch;
+  }
+  out.push(cur.trim());
+  return out.map(v=>v.replace(/\\\|/g,'|').replace(/<br\s*\/?>/gi,'\n'));
+}
+function isSepRow(row){ return row.every(c => /^:?-{3,}:?$/.test(c.replace(/\s/g,''))); }
+function fromMarkdown(md){
+  const lines=md.split(/\r?\n/).map(s=>s.trim()).filter(Boolean);
+  const rows=lines.filter(l=>l.includes('|')).map(splitMDRow);
+  if(rows.length>=2 && isSepRow(rows[1])) rows.splice(1,1);
+  return normData(rows.length?rows:[['']]);
+}
+function colName(i){ let s=''; i++; while(i){ const m=(i-1)%26; s=String.fromCharCode(65+m)+s; i=Math.floor((i-1)/26);} return s; }
+
+function renderTabs(){
+  sheetbar.innerHTML='';
+  state.sheets.forEach((s,i)=>{
+    const d=document.createElement('div'); d.className='sheetTab'+(i===state.active?' active':''); d.textContent=s.name;
+    d.ondblclick=()=>{ const n=prompt('Sheet 名称',s.name); if(n){s.name=n;renderTabs();} };
+    d.onclick=()=>{state.active=i; renderAll();};
+    sheetbar.appendChild(d);
+  });
+}
+function renderTable(){
+  const data=normData(activeSheet().data); activeSheet().data=data;
+  const rows=Math.max(data.length,10), cols=Math.max(data[0].length,6);
+  let html='<table><thead><tr><th></th>';
+  for(let c=0;c<cols;c++) html+=`<th>${colName(c)}</th>`;
+  html+='</tr></thead><tbody>';
+  for(let r=0;r<rows;r++){
+    html+=`<tr><td class="rownum">${r+1}</td>`;
+    for(let c=0;c<cols;c++){
+      const val=(data[r]&&data[r][c]!=null)?String(data[r][c]):'';
+      html+=`<td><input class="cell" data-r="${r}" data-c="${c}" value="${val.replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}"></td>`;
+    }
+    html+='</tr>';
+  }
+  html+='</tbody></table>'; tableWrap.innerHTML=html;
+  tableWrap.querySelectorAll('.cell').forEach(inp=>{
+    inp.addEventListener('input',()=>{
+      const r=+inp.dataset.r,c=+inp.dataset.c;
+      const d=activeSheet().data;
+      while(d.length<=r)d.push([]);
+      while(d[r].length<=c)d[r].push('');
+      d[r][c]=inp.value;
+      activeSheet().data=trimData(d);
+      syncToMD();
+      updateStatus();
+    });
+  });
+}
+function trimData(data){
+  data=normData(data);
+  let lastR=data.length-1; while(lastR>0 && data[lastR].every(v=>v==='')) lastR--;
+  data=data.slice(0,lastR+1);
+  let maxC=1; data.forEach(r=>r.forEach((v,i)=>{if(v!==''&&i+1>maxC)maxC=i+1;}));
+  return data.map(r=>r.slice(0,maxC));
+}
+function syncToMD(){ if(state.lock)return; state.lock=true; mdarea.value=toMarkdown(activeSheet().data); renderMarkdown(mdarea.value); $('#mdStatus').textContent=mdarea.value.length+' 字符'; state.lock=false; }
+function syncFromMD(){
+  if(state.lock)return; state.lock=true;
+  activeSheet().data=fromMarkdown(mdarea.value);
+  renderTable(); renderMarkdown(mdarea.value); updateStatus(); state.lock=false;
+}
+function updateStatus(){
+  const d=normData(activeSheet().data);
+  $('#excelStatus').textContent=`${d.length} 行 × ${d[0].length} 列`;
+  $('#mdStatus').textContent=mdarea.value.length+' 字符';
+}
+function renderAll(){ renderTabs(); renderTable(); syncToMD(); updateStatus(); }
+
+mdarea.addEventListener('input',()=>{ renderMarkdown(mdarea.value); clearTimeout(window.__mdt); window.__mdt=setTimeout(syncFromMD,180); $('#mdStatus').textContent=mdarea.value.length+' 字符'; });
+$('#previewBtn').onclick=()=>setMdMode('preview');
+$('#sourceBtn').onclick=()=>setMdMode('source');
+
+$('#newSheet').onclick=()=>{
+  let base='Sheet',n=state.sheets.length+1,name=base+n;
+  while(state.sheets.some(s=>s.name===name)){n++;name=base+n;}
+  state.sheets.push({name,data:[['']]}); state.active=state.sheets.length-1; renderAll();
+};
+
+$('#excelFile').addEventListener('change',async e=>{
+  const f=e.target.files[0]; if(!f)return;
+  try{
+    const buf=await f.arrayBuffer();
+    const wb=XLSX.read(buf,{type:'array'});
+    state.sheets=wb.SheetNames.map(name=>({name,data:normData(XLSX.utils.sheet_to_json(wb.Sheets[name],{header:1,raw:false,defval:''}))}));
+    state.active=0; renderAll(); toast('Excel 已导入');
+  }catch(err){ alert('导入失败：'+err.message); }
+  e.target.value='';
+});
+
+$('#mdFile').addEventListener('change',async e=>{
+  const f=e.target.files[0]; if(!f)return;
+  const txt=await f.text();
+  state.sheets=[{name:f.name.replace(/\.(md|txt)$/i,'')||'Sheet1',data:fromMarkdown(txt)}]; state.active=0; renderAll(); toast('Markdown 已导入');
+  e.target.value='';
+});
+
+function download(blob,name){
+  const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=name; a.click(); setTimeout(()=>URL.revokeObjectURL(a.href),1000);
+}
+$('#exportMd').onclick=()=>{
+  const content=state.sheets.map(s=>state.sheets.length>1?`## ${s.name}\n\n${toMarkdown(s.data)}`:toMarkdown(s.data)).join('\n\n');
+  download(new Blob([content],{type:'text/markdown;charset=utf-8'}),'excel-markdown.md'); toast('Markdown 已导出');
+};
+$('#exportExcel').onclick=()=>{
+  const wb=XLSX.utils.book_new();
+  state.sheets.forEach(s=>{
+    const ws=XLSX.utils.aoa_to_sheet(normData(s.data));
+    XLSX.utils.book_append_sheet(wb,ws,s.name.slice(0,31)||'Sheet');
+  });
+  XLSX.writeFile(wb,'markdown-excel.xlsx'); toast('Excel 已导出');
+};
+
+renderAll();
+setMdMode('preview');
+</script>
+</body>
+</html>
