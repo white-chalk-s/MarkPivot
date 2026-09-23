@@ -4,6 +4,7 @@
   "type": "module",
   "scripts": {
     "fixtures": "node tools/fixtures/build.mjs",
+    "vendor": "node tools/vendor-sync.mjs",
     "qa": "node tools/verify.mjs",
     "qa:all": "npm run fixtures && npm run qa"
   },

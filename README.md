@@ -1,14 +1,16 @@
-# MarkPivot · 文档互转工作台
+# MarkPivot · 文档规范化
 
-> 本地优先的 Word、Excel 与 Markdown 双向转换工具。Markdown 是唯一语义中枢，Word 和 Excel 是两种结果视图。
+> 本地运行的文档规范化工具：把已经写好的 Word，按目标模板或规则识别、统一格式并批量输出可交付文件。
+
+产品主叙事是 **Document → Normalize → Deliver**。Word / Excel / Markdown 转换能力仍保留为内部引擎；Markdown 不再作为面向用户的主概念。
 
 ## 当前状态
 
-核心转换、双向编辑、格式规范、批量转换、文件打开/刷新、离线依赖容灾和 WPS 常见排版兼容已经形成稳定基线（2026-09-03：`45 PASS / 0 FAIL / 0 SKIP`）。产品仍保持单文件 HTML，不上传文档，不需要账号或后端服务。
+2026-09-23 完成 **M0–M11**：入口统一为 `MarkPivot.html`，主流程为独立任务「上传文件 → 选择规范 → 自动识别/微调 → 批量导出」。规范库可新建、编辑、复制、导入导出 JSON、从 Word 创建；任务内微调不会自动覆盖库里的规范。工作台中栏可切换原文/当前效果；完成调整后进入导出页。解压包需保持 `MarkPivot.html`、`vendor/`、`templates/` 同层；带着本地运行库即可离线启动。V4.1 转换引擎仍复用，不上传文档，不需要账号或后端。
 
 ## 立即使用
 
-1. 在浏览器打开 `文档互转工作台.html`。直接双击可以使用基础能力；推荐通过本地 HTTP 服务打开，以获得完整的文件与资源行为。
+1. 保持 `MarkPivot.html`、`vendor/`、`templates/` 在同一目录。直接双击可以使用基础能力；推荐通过本地 HTTP 服务打开，以获得完整的文件与资源行为。
 2. 在项目根目录运行：
 
    ```powershell
@@ -16,9 +18,9 @@
    ```
 
    如果 Windows 中 `python` 不可用，可改用 `py -m http.server 8765 --bind 127.0.0.1`。
-3. 访问 <http://127.0.0.1:8765/文档互转工作台.html>。
+3. 访问 <http://127.0.0.1:8765/MarkPivot.html>。
 
-首次使用需要联网加载并缓存转换运行库；缓存建立后，断网仍可继续使用已缓存能力。顶部状态会显示依赖是否就绪、是否命中本机缓存，以及哪些导出能力可用。
+带着 `vendor/` 首次打开不必访问 CDN。顶部状态显示「本地运行库可用（可离线）」时，9 个转换库都来自本机。只有缺少 vendor 且本机没有缓存时，才会尝试 jsDelivr / unpkg。`templates/reference-template.docx` 可作为参考规范样例上传。
 
 ## 核心工作方式
 
@@ -65,10 +67,16 @@ Word / Excel / CSV / Markdown
 
 ## 开发验证
 
-开发测试依赖只放在 `devDependencies`，产品运行时仍是单文件 HTML。重新生成夹具并运行全量回归：
+开发测试依赖只放在 `devDependencies`，产品运行时仍是单文件 HTML，运行库副本在 `vendor/`。重新生成夹具并运行全量回归：
 
 ```powershell
 npm.cmd run qa:all
+```
+
+刷新锁定版本运行库：
+
+```powershell
+npm.cmd run vendor
 ```
 
 报告写入 `tools/output/v4-report.json`，测试截图和导出产物写入 `tools/output/playwright/v4/` 等版本目录。

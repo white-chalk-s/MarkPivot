@@ -1,0 +1,82 @@
+{
+  "version": 1,
+  "generatedAt": "2026-09-23T07:44:16.017Z",
+  "libraries": [
+    {
+      "id": "JSZip",
+      "global": "JSZip",
+      "version": "3.10.1",
+      "file": "jszip-3.10.1.min.js",
+      "local": "vendor/jszip-3.10.1.min.js",
+      "bytes": 97630
+    },
+    {
+      "id": "docx",
+      "global": "docx",
+      "version": "8.5.0",
+      "file": "docx-8.5.0.umd.js",
+      "local": "vendor/docx-8.5.0.umd.js",
+      "bytes": 742858
+    },
+    {
+      "id": "XLSX",
+      "global": "XLSX",
+      "version": "0.18.5",
+      "file": "xlsx-0.18.5.full.min.js",
+      "local": "vendor/xlsx-0.18.5.full.min.js",
+      "bytes": 881727
+    },
+    {
+      "id": "markdownit",
+      "global": "markdownit",
+      "version": "14.1.0",
+      "file": "markdown-it-14.1.0.min.js",
+      "local": "vendor/markdown-it-14.1.0.min.js",
+      "bytes": 123618
+    },
+    {
+      "id": "markdownitFootnote",
+      "global": "markdownitFootnote",
+      "version": "4.0.0",
+      "file": "markdown-it-footnote-4.0.0.min.js",
+      "local": "vendor/markdown-it-footnote-4.0.0.min.js",
+      "bytes": 5624
+    },
+    {
+      "id": "markdownitTaskLists",
+      "global": "markdownitTaskLists",
+      "version": "2.1.1",
+      "file": "markdown-it-task-lists-2.1.1.min.js",
+      "local": "vendor/markdown-it-task-lists-2.1.1.min.js",
+      "bytes": 2702
+    },
+    {
+      "id": "markdownitMark",
+      "global": "markdownitMark",
+      "version": "4.0.0",
+      "file": "markdown-it-mark-4.0.0.min.js",
+      "local": "vendor/markdown-it-mark-4.0.0.min.js",
+      "bytes": 1621
+    },
+    {
+      "id": "markdownitSub",
+      "global": "markdownitSub",
+      "version": "2.0.0",
+      "file": "markdown-it-sub-2.0.0.min.js",
+      "local": "vendor/markdown-it-sub-2.0.0.min.js",
+      "bytes": 967
+    },
+    {
+      "id": "markdownitSup",
+      "global": "markdownitSup",
+      "version": "2.0.0",
+      "file": "markdown-it-sup-2.0.0.min.js",
+      "local": "vendor/markdown-it-sup-2.0.0.min.js",
+      "bytes": 965
+    }
+  ],
+  "template": {
+    "path": "templates/reference-template.docx",
+    "bytes": 9624
+  }
+}

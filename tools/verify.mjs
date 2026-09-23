@@ -1,15 +1,16 @@
 import { createServer } from 'node:http';
 import { inflateRawSync } from 'node:zlib';
 import { existsSync } from 'node:fs';
-import { mkdir, readFile, stat, writeFile } from 'node:fs/promises';
+import { copyFile, mkdir, readFile, stat, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { chromium } from 'playwright';
 import ExcelJS from 'exceljs';
+import { VENDOR_LIBRARIES } from './vendor-sync.mjs';
 
 const toolsDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)));
 const projectRoot = path.resolve(toolsDir, '..');
-const appFile = path.join(projectRoot, '文档互转工作台.html');
+const appFile = path.join(projectRoot, 'MarkPivot.html');
 const fixtureDir = path.join(toolsDir, 'fixtures');
 const baselineDir = path.join(toolsDir, 'baseline');
 const artifactDir = path.join(toolsDir, 'output', 'playwright', 'v4');
@@ -21,6 +22,8 @@ const fixturePaths = {
   v4WideTable: path.join(fixtureDir, 'v4-wide-table.md'),
   docx: path.join(fixtureDir, 'sample.docx'),
   referenceDocx: path.join(fixtureDir, 'reference-template.docx'),
+  manualHeading: path.join(fixtureDir, 'manual-heading.docx'),
+  largeDocx: path.join(fixtureDir, 'large-doc.docx'),
   xlsx: path.join(fixtureDir, 'sample.xlsx'),
 };
 const screenshotPaths = {
@@ -35,6 +38,34 @@ const f3CoverMobileScreenshotPath = path.join(artifactDir, 'f3-cover-mobile.png'
 const v4TableDesktopScreenshotPath = path.join(artifactDir, 'v4-table-desktop.png');
 const v4TableMobileScreenshotPath = path.join(artifactDir, 'v4-table-mobile.png');
 const v4WideTableScreenshotPath = path.join(artifactDir, 'v4-wide-table-after-fix.png');
+const m1Dir = path.join(toolsDir, 'output', 'playwright', 'm1');
+const m1HomeScreenshotPath = path.join(m1Dir, 'home.png');
+const m1ChoiceScreenshotPath = path.join(m1Dir, 'choice.png');
+const m1WorkspaceScreenshotPath = path.join(m1Dir, 'workspace.png');
+const m2Dir = path.join(toolsDir, 'output', 'playwright', 'm2');
+const m2WorkspaceScreenshotPath = path.join(m2Dir, 'workspace.png');
+const m4Dir = path.join(toolsDir, 'output', 'playwright', 'm4');
+const m4ExtractScreenshotPath = path.join(m4Dir, 'extract-summary.png');
+const m4WorkspaceScreenshotPath = path.join(m4Dir, 'workspace.png');
+const m5Dir = path.join(toolsDir, 'output', 'playwright', 'm5');
+const m5WorkspaceScreenshotPath = path.join(m5Dir, 'workspace.png');
+const m5ReviewScreenshotPath = path.join(m5Dir, 'review.png');
+const m6Dir = path.join(toolsDir, 'output', 'playwright', 'm6');
+const m6WorkspaceScreenshotPath = path.join(m6Dir, 'workspace.png');
+const m7Dir = path.join(toolsDir, 'output', 'playwright', 'm7');
+const m7WorkspaceScreenshotPath = path.join(m7Dir, 'workspace.png');
+const m8Dir = path.join(toolsDir, 'output', 'playwright', 'm8');
+const m8ExportScreenshotPath = path.join(m8Dir, 'export.png');
+const m9Dir = path.join(toolsDir, 'output', 'playwright', 'm9');
+const m9WorkspaceScreenshotPath = path.join(m9Dir, 'workspace.png');
+const m9JobScreenshotPath = path.join(m9Dir, 'job.png');
+const m10Dir = path.join(toolsDir, 'output', 'playwright', 'm10');
+const m10HomeScreenshotPath = path.join(m10Dir, 'home.png');
+const m11Dir = path.join(toolsDir, 'output', 'playwright', 'm11');
+const m11LibraryScreenshotPath = path.join(m11Dir, 'library.png');
+const m11EditorScreenshotPath = path.join(m11Dir, 'editor.png');
+const vendorDir = path.join(projectRoot, 'vendor');
+const productTemplatePath = path.join(projectRoot, 'templates', 'reference-template.docx');
 const exportedPaths = {
   docx: path.join(artifactDir, 'exported-sample.docx'),
   v1CompatibilityDocx: path.join(artifactDir, 'v1-compatibility.docx'),
@@ -48,6 +79,9 @@ const exportedPaths = {
   batchWordZip: path.join(artifactDir, 'batch-word.zip'),
   batchExcelZip: path.join(artifactDir, 'batch-excel.zip'),
   batchCsvZip: path.join(artifactDir, 'batch-csv.zip'),
+  taskZip: path.join(artifactDir, 'task-export.zip'),
+  taskZip20: path.join(artifactDir, 'task-export-20.zip'),
+  taskCancelZip: path.join(artifactDir, 'task-export-cancel.zip'),
 };
 const invalidDocxPath = path.join(artifactDir, 'invalid.docx');
 
@@ -126,7 +160,7 @@ function makeStaticServer() {
         response.end();
         return;
       }
-      const relativePath = rawPath === '/' ? '文档互转工作台.html' : rawPath.replace(/^[/\\]+/, '');
+      const relativePath = rawPath === '/' ? 'MarkPivot.html' : rawPath.replace(/^[/\\]+/, '');
       const targetPath = rawPath === '/images/sample.png'
         ? path.join(fixtureDir, 'images', 'sample.png')
         : path.resolve(projectRoot, relativePath);
@@ -260,9 +294,9 @@ function xmlParagraphs(xml) {
   return [...String(xml || '').matchAll(/<w:p\b[^>]*>[\s\S]*?<\/w:p>/g)].map((match) => match[0]);
 }
 
-function waitForDownload(page, selector, outputPath) {
+function waitForDownload(page, selector, outputPath, timeout = 20_000) {
   return Promise.all([
-    page.waitForEvent('download', { timeout: 20_000 }),
+    page.waitForEvent('download', { timeout }),
     page.locator(selector).click(),
   ]).then(async ([download]) => {
     await download.saveAs(outputPath);
@@ -289,6 +323,7 @@ async function installDependencyReplay(page) {
   const cache = new Map();
   let primaryDown = false;
   let externalOffline = false;
+  let vendorDown = false;
   await page.route('**/*', async (route) => {
     const url = route.request().url();
     if (url.includes('fonts.googleapis.com')) {
@@ -297,6 +332,15 @@ async function installDependencyReplay(page) {
     }
     if (url.includes('fonts.gstatic.com')) {
       await route.fulfill({ status: 200, contentType: 'font/woff2', body: Buffer.alloc(0) });
+      return;
+    }
+    const isVendor = /\/vendor\/[^/?#]+\.js(?:$|\?)/.test(url);
+    if (isVendor) {
+      if (vendorDown) {
+        await route.fulfill({ status: 200, contentType: 'application/javascript; charset=utf-8', body: '' });
+        return;
+      }
+      await route.continue();
       return;
     }
     const isPrimary = url.includes('cdn.jsdelivr.net');
@@ -333,6 +377,9 @@ async function installDependencyReplay(page) {
     setOffline(value) {
       externalOffline = Boolean(value);
     },
+    setVendorDown(value) {
+      vendorDown = Boolean(value);
+    },
   };
 }
 
@@ -360,6 +407,36 @@ async function waitForApp(page, { navigate = true } = {}) {
   return page.locator('#libraryStatus').textContent();
 }
 
+async function startTaskToExport(page, files) {
+  const homeUrl = String(page.appUrl).replace(/\?qa=.*$/, '');
+  await page.goto(homeUrl, { waitUntil: 'domcontentloaded', timeout: 20_000 });
+  await waitForApp(page, { navigate: false });
+  await page.locator('#homeInput').setInputFiles(files);
+  const expected = Array.isArray(files) ? files.length : 1;
+  await page.waitForFunction((count) => window.__WB_M1__?.getTask()?.fileCount >= count, expected, { timeout: 8_000 });
+  await page.locator('#homeNextBtn').click();
+  await page.locator('#choiceBlankBtn').click();
+  await page.locator('#specRail').waitFor({ state: 'visible', timeout: 8_000 });
+  await page.waitForFunction(() => /已载入|需确认|识别失败|导入失败/.test(document.querySelector('#fileRailList')?.textContent || ''), null, { timeout: 20_000 });
+  await page.locator('#taskExportBtn').click();
+  await page.locator('#exportView').waitFor({ state: 'visible', timeout: 8_000 });
+  assert((await page.evaluate(() => window.__WB_M8__?.snapshot()?.view)) === 'export', '未进入导出页。');
+  assert((await page.locator('#batchDrawer').getAttribute('class') || '').includes('open') === false, '任务导出打开了 F1 批量抽屉。');
+}
+
+async function startTaskToWorkspace(page, files) {
+  const homeUrl = String(page.appUrl).replace(/\?qa=.*$/, '');
+  await page.goto(homeUrl, { waitUntil: 'domcontentloaded', timeout: 20_000 });
+  await waitForApp(page, { navigate: false });
+  await page.locator('#homeInput').setInputFiles(files);
+  const expected = Array.isArray(files) ? files.length : 1;
+  await page.waitForFunction((count) => window.__WB_M1__?.getTask()?.fileCount >= count, expected, { timeout: 8_000 });
+  await page.locator('#homeNextBtn').click();
+  await page.locator('#choiceBlankBtn').click();
+  await page.locator('#specRail').waitFor({ state: 'visible', timeout: 8_000 });
+  await page.waitForFunction(() => /已载入|需确认|识别失败|导入失败/.test(document.querySelector('#fileRailList')?.textContent || ''), null, { timeout: 90_000 });
+}
+
 async function waitForDependencySettled(page) {
   await page.waitForFunction(
     () => {
@@ -382,14 +459,15 @@ async function checkStaticContracts() {
   await check('单文件产品入口存在', () => {
     assert(htmlStat.size > 100_000, `HTML 体积异常：${formatBytes(htmlStat.size)}。`);
     assert(!/\b(?:import|require)\s*\(/.test(html), '产品 HTML 发现运行时 import/require。');
-    return `文档互转工作台.html · ${formatBytes(htmlStat.size)}`;
+    return `MarkPivot.html · ${formatBytes(htmlStat.size)}`;
   });
   await check('运行库版本锁定与离线缓存契约', () => {
     assert(html.includes('window.__WB_DEPENDENCY_LOCK__'), '缺少运行库版本锁定表。');
+    assert(html.includes("local:'vendor/") && html.includes('vendor/jszip-3.10.1.min.js'), '缺少本地 vendor 路径。');
     assert(html.includes('cdn.jsdelivr.net') && html.includes('unpkg.com'), '缺少 jsDelivr 主源或 unpkg 备源。');
     assert(html.includes('document-workbench-dependency-cache-v1:') && html.includes('localStorage.setItem'), '缺少 localStorage 运行库缓存。');
     assert(html.includes("version:'3.10.1'") && html.includes("version:'8.5.0'") && html.includes("version:'0.18.5'"), '核心运行库版本未锁定。');
-    return 'jsDelivr 主源 · unpkg 备源 · localStorage 缓存 · 版本锁定';
+    return 'vendor 优先 · jsDelivr/unpkg 后备 · localStorage 缓存 · 版本锁定';
   });
   await check('工具依赖只进入 devDependencies', () => {
     const dependencies = Object.keys(packageJson.dependencies || {});
@@ -445,12 +523,97 @@ async function checkStaticContracts() {
     assert(html.includes('left:420,hanging:420'), '列表编号缩进没有校准到 V4 量级。');
     return 'colgroup · gridCol/tcW · fixed · firstLineChars 单写 · 列表 left=420/hanging=420';
   });
+  await check('M0 入口与 M1 UI Foundation 契约', () => {
+    assert(path.basename(appFile) === 'MarkPivot.html', `产品入口不是 MarkPivot.html：${appFile}`);
+    assert(html.includes('--color-brand:#F97316'), '缺少品牌橙 Token。');
+    assert(html.includes('--color-bg:#F7F6F3') && html.includes('--radius-card:10px'), '缺少暖白画布或卡片圆角 Token。');
+    assert(html.includes('id="homeView"') && html.includes('下一步：选择规范'), '缺少首页上传主流程。');
+    assert(html.includes('id="choiceView"') && html.includes('上传模板') && html.includes('从空白开始'), '缺少规范选择三入口。');
+    assert(html.includes('id="fileRail"') && html.includes('id="specRail"') && html.includes('data-spec-scope'), '缺少工作台三栏或作用域开关。');
+    assert(html.includes('data-app-view="home"') && html.includes('data-app-view="specs"') && !/<button[^>]*data-app-view="workspace"/.test(html), '一级导航仍把工作台当作入口。');
+    return 'MarkPivot.html · 暖白橙 Token · 首页/选规范/三栏工作台 · 一级页不含工作台';
+  });
+  await check('M2 Task 与 M3 Specification 契约', () => {
+    assert(html.includes('function createTask()') && html.includes('function endTask()') && html.includes('fileOverrides'), '缺少 Task 生命周期。');
+    assert(html.includes('markpivot-spec-library-v1') && html.includes('id="specSaveLibraryBtn"') && html.includes('离开当前任务'), '缺少规范库隔离或离开确认。');
+    assert(html.includes('data-spec-path="page.paper"') && html.includes('data-spec-path="heading1.bold"') && html.includes('data-spec-path="header.text"') && html.includes('data-spec-path="footer.pageNumber"') && html.includes('data-spec-path="table.keepTogether"'), 'Specification 字段未绑定到规范栏。');
+    assert(html.includes('window.__WB_M2__') && html.includes('window.__WB_M3__') && html.includes('roundtripOk'), '缺少 M2/M3 探针。');
+    assert(!html.includes('data-spec-style='), '规范栏仍直接绑定散落 CSS 变量。');
+    return 'Task 生命周期 · 规范库隔离 · Specification JSON/UI 绑定 · 探针';
+  });
+  await check('M4 Spec Extractor 契约', () => {
+    assert(html.includes('extractSpecificationFromZip') && html.includes('extractSpecificationFromFile(file)'), '缺少 DOCX → Specification 提取器。');
+    assert(html.includes('id="extractSummary"') && html.includes('id="extractExtractedList"') && html.includes('id="extractMissingList"') && html.includes('进入工作台继续修改'), '缺少提取摘要 UI。');
+    assert(html.includes('window.__WB_M4__') && html.includes('id="specExtractBanner"'), '缺少 M4 探针或规范栏提取横幅。');
+    assert(!/templateInput[\s\S]{0,1200}specFromCss\(\)/.test(html), '模板上传仍经 CSS 往返猜测未提取项。');
+    return 'DOCX 直出 Specification · 已提取/未提取摘要 · 禁止 CSS 往返';
+  });
+  await check('M5 Semantic Mapper 契约', () => {
+    assert(html.includes('mapSemanticsFromZip') && html.includes('mapSemanticsFromFile(file)'), '缺少 DOCX → 语义块识别器。');
+    assert(html.includes('id="semanticMap"') && html.includes('semanticType') && html.includes('需确认'), '缺少语义列表或异常文件状态。');
+    assert(html.includes('window.__WB_M5__') && html.includes('处待确认') && html.includes('处低置信度，未自动改写'), '缺少 M5 探针或低置信度提示。');
+    assert(html.includes("source==='heuristic'&&conf<0.85") && html.includes('Math.min(0.84'), '启发式标题未封顶或低置信度仍可能静默改写。');
+    return '确定性规则+启发式 · 用户可改 · 低置信度不静默改写';
+  });
+  await check('M6 工作台预览契约', () => {
+    assert(html.includes('id="previewToolbar"') && html.includes('data-preview-mode="source"') && html.includes('data-preview-mode="effect"'), '缺少原文 / 当前效果切换。');
+    assert(html.includes('id="previewZoomIn"') && html.includes('id="previewPageLabel"') && html.includes('第 1 / 1 页'), '缺少缩放或页码。');
+    assert(html.includes('window.__WB_M6__') && html.includes('function paperCssSize') && html.includes('rememberTaskMarkdown'), '缺少 M6 探针、纸面尺寸或切文件 Markdown 记忆。');
+    return '原文/当前效果 · 缩放页码 · 切文件保留 MD';
+  });
+  await check('M7 Rule Engine 契约', () => {
+    assert(html.includes('function compileRules') && html.includes('function renderRules') && html.includes('function paintRuleStyles') && html.includes('function applyRuleEngine'), '缺少 Rule Engine 编译或涂绘。');
+    assert(html.includes('window.__WB_M7__') && html.includes('function promoteRuleNodes') && html.includes('decorateExportHolder'), '缺少 M7 探针或导出提升。');
+    assert(html.includes('is-rule-heading1') && html.includes("previewMode==='source'"), '缺少标题涂绘或原文模式清除。');
+    return 'compile/render/paint · 导出提升 · 原文不涂绘';
+  });
+  await check('M8 批量导出契约', () => {
+    assert(html.includes('id="exportView"') && html.includes('id="exportAllBtn"') && html.includes('导出全部文件'), '缺少任务导出页。');
+    assert(html.includes('function runTaskExport') && html.includes('function buildTaskWordBlob') && html.includes('importWordEngine'), '缺少任务导出沙箱或同一套导出函数。');
+    assert(html.includes('window.__WB_M8__') && html.includes('specification.json') && html.includes('处理记录.txt'), '缺少 M8 探针或 ZIP 规范/记录。');
+    assert(!/addBatchFiles\(task\.files/.test(html) && html.includes("setAppView('export')"), '任务导出仍复用 F1 批量抽屉。');
+    return '导出页 · 单多档同一套 · 失败隔离 · 不走 F1 抽屉';
+  });
+  await check('M9 性能与大文件契约', () => {
+    assert(html.includes('function jobPlan') && html.includes('function forEachBodyChunk') && html.includes('JOB_WORKER_SOURCE') && html.includes('function prepareAssetBlob'), '缺少分片调度或图片 Worker。');
+    assert(html.includes('id="jobBanner"') && html.includes('id="jobCancelBtn"') && html.includes("previewMarkdown") && html.includes('大图已延后预览'), '缺少进度条、取消或大图延后预览。');
+    assert(html.includes('window.__WB_M9__') && html.includes("tier:'50mb'") && html.includes("tier:'20mb'") && html.includes("tier:'5mb'") && html.includes("tier:'100p'"), '缺少 M9 探针或档位契约。');
+    assert(html.includes('entry.blob=null') && html.includes('JOB_CANCELLED') && html.includes('这个文件导入失败，可继续处理其他文件'), '缺少内存释放、取消或任务隔离。');
+    return 'Worker ping · 分片 yield · 进度取消 · 大图延后 · 失败隔离';
+  });
+  await check('M10 真正离线交付契约', async () => {
+    assert(html.includes('window.__WB_M10__') && html.includes('function loadVendor') && html.includes('fromVendor'), '缺少 M10 探针或本地 vendor 加载。');
+    assert(html.includes('本地运行库可用（可离线）') && html.includes('loadScriptTag'), '缺少离线状态或 file:// script 回退。');
+    const vendorFiles = await Promise.all(VENDOR_LIBRARIES.map(async (item) => {
+      const filePath = path.join(vendorDir, item.file);
+      assert(existsSync(filePath), `缺少 vendor/${item.file}，请先运行 npm run vendor。`);
+      const fileStat = await stat(filePath);
+      assert(fileStat.size >= item.minBytes, `vendor/${item.file} 过小：${fileStat.size}`);
+      assert(html.includes(item.file), `HTML 未锁定 ${item.file}`);
+      return `${item.id}=${formatBytes(fileStat.size)}`;
+    }));
+    assert(existsSync(path.join(vendorDir, 'manifest.json')), '缺少 vendor/manifest.json。');
+    assert(existsSync(productTemplatePath), '缺少 templates/reference-template.docx。');
+    const templateStat = await stat(productTemplatePath);
+    assert(templateStat.size > 0, '发行模板为空。');
+    return `${vendorFiles.join(' · ')} · template=${formatBytes(templateStat.size)}`;
+  });
+  await check('M11 规范库契约', () => {
+    assert(html.includes('id="libraryNewBtn"') && html.includes('id="libraryFromWordBtn"') && html.includes('id="libraryImportBtn"') && html.includes('id="libraryEditor"'), '缺少规范库新建/Word/JSON/编辑入口。');
+    assert(html.includes('window.__WB_M11__') && html.includes('function putLibrarySpec') && html.includes('function importLibraryJson') && html.includes('function duplicateLibrarySpec'), '缺少规范库写入、导入或复制。');
+    assert(html.includes('修改只写入规范库，不会改当前任务') && html.includes('id="specSaveLibraryBtn"'), '缺少任务隔离文案或保存为新规范。');
+    assert(html.includes('data-lib-action') || html.includes('dataset.libAction'), '缺少规范卡片操作。');
+    return '新建/编辑/复制/重命名/删除 · JSON · 从 Word · 不覆盖任务';
+  });
 }
 
 async function runBrowserChecks(page) {
   const dependencyReplay = await installDependencyReplay(page);
   await check('浏览器页面与依赖就绪', async () => {
-    const text = await waitForApp(page);
+    await waitForApp(page);
+    await page.evaluate(() => localStorage.clear());
+    await page.reload({ waitUntil: 'domcontentloaded', timeout: 20_000 });
+    const text = await waitForApp(page, { navigate: false });
     const libs = await page.evaluate(() => ({
       JSZip: !!window.JSZip,
       docx: !!window.docx,
@@ -461,16 +624,52 @@ async function runBrowserChecks(page) {
     const dependency = await page.evaluate(() => window.__WB_DEPENDENCY_STATE__);
     const sources = Object.values(dependency?.libraries || {}).map((item) => item.source);
     assert(dependency?.locked === true && sources.length === 9, `依赖状态不完整：${JSON.stringify(dependency)}`);
-    assert(sources.every((source) => source === 'jsdelivr'), `首选源未全部命中：${sources.join('/')}`);
-    return `${text} · 全局依赖=${Object.keys(libs).join('/')} · 源=jsDelivr`;
+    assert(sources.every((source) => source === 'vendor'), `首次未命中本地运行库：${sources.join('/')}`);
+    assert(dependency.fromVendor === true && dependency.offlineCapable === true, '本地运行库未标记可离线。');
+    assert(text.includes('本地运行库可用'), `首次离线提示不正确：${text}`);
+    return `${text} · 全局依赖=${Object.keys(libs).join('/')} · 源=vendor`;
   });
   if (checks.at(-1)?.status !== 'PASS') {
     skip('浏览器业务流程', '页面依赖未就绪，跳过真实文件操作。');
     return;
   }
 
+  await check('M10 无 CDN 首次启动仍可用', async () => {
+    await mkdir(m10Dir, { recursive: true });
+    await page.evaluate(() => localStorage.clear());
+    dependencyReplay.setOffline(true);
+    await page.reload({ waitUntil: 'domcontentloaded', timeout: 20_000 });
+    const text = await waitForApp(page, { navigate: false });
+    const dependency = await page.evaluate(() => window.__WB_DEPENDENCY_STATE__);
+    const sources = Object.values(dependency?.libraries || {}).map((item) => item.source);
+    assert(sources.length === 9 && sources.every((source) => source === 'vendor'), `内网首次未走 vendor：${sources.join('/')}`);
+    assert(text.includes('本地运行库可用'), `内网状态提示不正确：${text}`);
+    const homeUrl = String(page.appUrl).replace(/\?qa=.*$/, '');
+    await page.goto(homeUrl, { waitUntil: 'domcontentloaded', timeout: 20_000 });
+    await waitForApp(page, { navigate: false });
+    await page.screenshot({ path: m10HomeScreenshotPath, fullPage: false });
+    await page.goto(page.appUrl, { waitUntil: 'domcontentloaded', timeout: 20_000 });
+    await waitForApp(page, { navigate: false });
+    dependencyReplay.setOffline(false);
+    return `无 CDN · vendor 9/9 · ${text}`;
+  });
+
+  await check('本地 vendor 缺失时回退 jsDelivr', async () => {
+    await page.evaluate(() => localStorage.clear());
+    dependencyReplay.setVendorDown(true);
+    dependencyReplay.setPrimaryDown(false);
+    dependencyReplay.setOffline(false);
+    await page.reload({ waitUntil: 'domcontentloaded', timeout: 20_000 });
+    const text = await waitForApp(page, { navigate: false });
+    const dependency = await page.evaluate(() => window.__WB_DEPENDENCY_STATE__);
+    const sources = Object.values(dependency?.libraries || {}).map((item) => item.source);
+    assert(sources.length === 9 && sources.every((source) => source === 'jsdelivr'), `vendor 缺失后未回退 jsDelivr：${sources.join('/')}`);
+    return `${text} · 源=jsDelivr`;
+  });
+
   await check('CDN 备源故障转移与本地缓存', async () => {
     await page.evaluate(() => localStorage.clear());
+    dependencyReplay.setVendorDown(true);
     dependencyReplay.setPrimaryDown(true);
     await page.reload({ waitUntil: 'domcontentloaded', timeout: 20_000 });
     const text = await waitForApp(page, { navigate: false });
@@ -482,6 +681,7 @@ async function runBrowserChecks(page) {
   });
 
   await check('外部网络不可用时本地缓存启动', async () => {
+    dependencyReplay.setVendorDown(true);
     dependencyReplay.setOffline(true);
     await page.reload({ waitUntil: 'domcontentloaded', timeout: 20_000 });
     const text = await waitForApp(page, { navigate: false });
@@ -490,13 +690,16 @@ async function runBrowserChecks(page) {
     assert(dependency?.fromCache === true && sources.length === 9 && sources.every((source) => source === 'cache'), `离线缓存未完整加载：${JSON.stringify(dependency)}`);
     assert(text.includes('本机缓存可用'), `离线状态提示不正确：${text}`);
     dependencyReplay.setOffline(false);
+    dependencyReplay.setVendorDown(false);
+    dependencyReplay.setPrimaryDown(false);
     await page.reload({ waitUntil: 'domcontentloaded', timeout: 20_000 });
     await waitForApp(page, { navigate: false });
     return `离线重载成功 · 缓存=9/9 · 版本已锁定`;
   });
 
-  await check('无网且无缓存时降级不白屏', async () => {
+  await check('无网且无 vendor/缓存时降级不白屏', async () => {
     await page.evaluate(() => localStorage.clear());
+    dependencyReplay.setVendorDown(true);
     dependencyReplay.setOffline(true);
     await page.reload({ waitUntil: 'domcontentloaded', timeout: 20_000 });
     const text = await waitForDependencySettled(page);
@@ -506,6 +709,7 @@ async function runBrowserChecks(page) {
     assert(buttons.every(Boolean), `无网降级按钮未全部禁用：${JSON.stringify(buttons)}`);
     assert(text.includes('部分能力不可用'), `无网降级提示缺失：${text}`);
     dependencyReplay.setOffline(false);
+    dependencyReplay.setVendorDown(false);
     await page.reload({ waitUntil: 'domcontentloaded', timeout: 20_000 });
     await waitForApp(page, { navigate: false });
     return `无缓存降级成功 · 9 个运行库缺失可见 · 导出按钮已禁用`;
@@ -1492,11 +1696,676 @@ async function runBrowserChecks(page) {
     assert(await page.locator('#refreshMdBtn').isDisabled() && await page.locator('#saveMdBtn').isDisabled(), '普通文件回退后刷新/保存未保持禁用。');
     return '无 API → 普通文件选择 · 无句柄关联 · 刷新/保存禁用 · tooltip 可见';
   });
+
+  await check('M1 首页选择规范与工作台主链路', async () => {
+    await mkdir(m1Dir, { recursive: true });
+    const homeUrl = String(page.appUrl).replace(/\?qa=.*$/, '');
+    await page.goto(homeUrl, { waitUntil: 'domcontentloaded', timeout: 20_000 });
+    await waitForApp(page, { navigate: false });
+    assert(await page.locator('#homeView').isVisible(), '首页未显示。');
+    assert(await page.locator('#homeNextBtn').isDisabled(), '未上传文件时下一步应禁用。');
+    assert(await page.locator('[data-app-view="workspace"]').count() === 0, '一级导航仍出现工作台。');
+    await page.screenshot({ path: m1HomeScreenshotPath, fullPage: false });
+    await page.locator('#homeInput').setInputFiles(fixturePaths.docx);
+    await page.waitForFunction(() => window.__WB_M1__?.getTask()?.fileCount >= 1, null, { timeout: 8_000 });
+    assert(await page.locator('#homeNextBtn').isEnabled(), '上传 Word 后下一步仍禁用。');
+    await page.locator('#homeNextBtn').click();
+    await page.locator('#choiceView').waitFor({ state: 'visible', timeout: 5_000 });
+    assert(await page.locator('#choiceTemplateBtn').isVisible(), '缺少上传模板入口。');
+    assert(await page.locator('#choiceBlankBtn').isVisible(), '缺少从空白开始入口。');
+    await page.screenshot({ path: m1ChoiceScreenshotPath, fullPage: false });
+    await page.locator('#choiceBlankBtn').click();
+    await page.locator('#specRail').waitFor({ state: 'visible', timeout: 8_000 });
+    assert(await page.locator('#fileRail').isVisible(), '工作台左栏文件列表未显示。');
+    assert(await page.locator('#wordPaper').isVisible(), '工作台预览未显示。');
+    await page.screenshot({ path: m1WorkspaceScreenshotPath, fullPage: false });
+    const task = await page.evaluate(() => window.__WB_M1__?.getTask());
+    assert(task?.step === 3 && task?.fileCount >= 1, `任务状态不正确：${JSON.stringify(task)}`);
+    await page.goto(page.appUrl, { waitUntil: 'domcontentloaded', timeout: 20_000 });
+    await waitForApp(page, { navigate: false });
+    return `首页截图 · 选择规范 · 三栏工作台 · files=${task.fileCount}`;
+  });
+
+  await check('M2 任务生命周期与 M3 Specification', async () => {
+    await mkdir(m2Dir, { recursive: true });
+    await mkdir(m4Dir, { recursive: true });
+    const secondDocx = path.join(m2Dir, 'sample-b.docx');
+    await copyFile(fixturePaths.docx, secondDocx);
+    const homeUrl = String(page.appUrl).replace(/\?qa=.*$/, '');
+    await page.goto(homeUrl, { waitUntil: 'domcontentloaded', timeout: 20_000 });
+    await waitForApp(page, { navigate: false });
+    await page.evaluate(() => localStorage.removeItem('markpivot-spec-library-v1'));
+    const styleBefore = await page.evaluate(() => localStorage.getItem('document-workbench-style-v2'));
+    await page.locator('#homeInput').setInputFiles([fixturePaths.docx, secondDocx]);
+    await page.waitForFunction(() => window.__WB_M1__?.getTask()?.fileCount >= 2, null, { timeout: 8_000 });
+    const firstTaskId = await page.evaluate(() => window.__WB_M1__?.getTask()?.id);
+    await page.locator('#homeNextBtn').click();
+    await page.locator('#choiceBlankBtn').click();
+    await page.locator('#specRail').waitFor({ state: 'visible', timeout: 8_000 });
+    await page.waitForFunction(() => Array.from(document.querySelectorAll('#fileRailList .mp-file-meta')).some((node) => node.textContent.includes('已载入')), null, { timeout: 15_000 });
+    await page.locator('[data-spec-tab="body"]').click();
+    const model = await page.evaluate(() => {
+      const spec = window.__WB_M3__?.getSpecification();
+      const parsed = window.__WB_M3__?.parseSpecification(JSON.stringify({ body: { size: '18px' } }));
+      return {
+        roundtrip: window.__WB_M3__?.roundtripOk(),
+        hasPage: !!spec?.page?.paper,
+        hasHeader: spec?.header && Object.prototype.hasOwnProperty.call(spec.header, 'text'),
+        hasFooter: spec?.footer && Object.prototype.hasOwnProperty.call(spec.footer, 'pageNumber'),
+        missingFilled: !!(parsed?.body?.font && parsed?.body?.size === '18px' && parsed?.page?.paper),
+        uiBound: !!document.querySelector('[data-spec-path="body.font"]'),
+      };
+    });
+    assert(model.roundtrip, 'Specification JSON roundtrip 失败。');
+    assert(model.hasPage && model.hasHeader && model.hasFooter && model.missingFilled && model.uiBound, `Specification 模型不完整：${JSON.stringify(model)}`);
+    const mdBefore = await page.locator('#mdEditor').inputValue();
+    await page.locator('#specBodySize').fill('18px');
+    await page.waitForFunction(() => window.__WB_M3__?.getSpecification()?.body?.size === '18px', null, { timeout: 5_000 });
+    assert(await page.locator('#mdEditor').inputValue() === mdBefore, '修改规范改写了 Markdown 语义。');
+    assert(await page.evaluate(() => window.__WB_M2__?.library()?.length) === 0, '任务内修改自动写入了规范库。');
+    assert(await page.evaluate(() => localStorage.getItem('document-workbench-style-v2')) === styleBefore, '任务修改污染了旧样式存储。');
+    await page.locator('#specSaveLibraryBtn').click();
+    await page.waitForFunction(() => window.__WB_M2__?.library()?.length >= 1, null, { timeout: 5_000 });
+    await page.locator('[data-spec-scope="file"]').click();
+    const fileIds = await page.evaluate(() => ({
+      current: window.__WB_M2__?.getTask()?.currentFileId,
+      files: Array.from(document.querySelectorAll('#fileRailList [data-file-id]')).map((node) => node.dataset.fileId),
+    }));
+    await page.locator('#specBodyColor').fill('#112233');
+    await page.waitForFunction(() => window.__WB_M3__?.getSpecification()?.body?.color === '#112233', null, { timeout: 5_000 });
+    assert((await page.evaluate(() => window.__WB_M2__?.getOverride()?.body?.color)) === '#112233', '当前文件 override 未写入。');
+    const otherId = fileIds.files.find((id) => id && id !== fileIds.current);
+    assert(otherId, '测试需要至少两个任务文件。');
+    await page.locator(`#fileRailList [data-file-id="${otherId}"] .mp-file-name`).click();
+    await page.waitForFunction(({ id, color }) => (
+      window.__WB_M2__?.getTask()?.currentFileId === id
+      && window.__WB_M3__?.getSpecification()?.body?.color !== color
+    ), { id: otherId, color: '#112233' }, { timeout: 10_000 });
+    await page.locator(`#fileRailList [data-file-id="${fileIds.current}"] .mp-file-name`).click();
+    await page.waitForFunction((color) => window.__WB_M3__?.getSpecification()?.body?.color === color, '#112233', { timeout: 10_000 });
+    await page.screenshot({ path: m2WorkspaceScreenshotPath, fullPage: false });
+    await page.locator('[data-step="1"]').click();
+    await page.locator('#homeView').waitFor({ state: 'visible', timeout: 5_000 });
+    assert((await page.evaluate(() => window.__WB_M1__?.getTask()?.fileCount)) >= 2, '步骤条回到上传页时任务被清空。');
+    await page.locator('#homeNextBtn').click();
+    await page.locator('#choiceView').waitFor({ state: 'visible', timeout: 5_000 });
+    page.once('dialog', async (dialog) => {
+      assert(String(dialog.message()).includes('离开当前任务'), `离开确认文案不正确：${dialog.message()}`);
+      await dialog.accept();
+    });
+    await page.locator('[data-app-view="home"]').click();
+    await page.locator('#homeView').waitFor({ state: 'visible', timeout: 5_000 });
+    await page.waitForFunction(() => window.__WB_M1__?.getTask()?.fileCount === 0, null, { timeout: 5_000 });
+    await page.locator('#homeInput').setInputFiles(fixturePaths.docx);
+    await page.waitForFunction(() => window.__WB_M1__?.getTask()?.fileCount === 1, null, { timeout: 8_000 });
+    const secondTaskId = await page.evaluate(() => window.__WB_M1__?.getTask()?.id);
+    assert(secondTaskId && secondTaskId !== firstTaskId, `新任务没有独立 id：${firstTaskId} / ${secondTaskId}`);
+    await page.goto(page.appUrl, { waitUntil: 'domcontentloaded', timeout: 20_000 });
+    await waitForApp(page, { navigate: false });
+    return `独立 Task · override 切文件 · 规范库显式保存 · JSON roundtrip · files 隔离`;
+  });
+
+  await check('M4 模板提取生成 Specification 初稿', async () => {
+    await mkdir(m4Dir, { recursive: true });
+    const homeUrl = String(page.appUrl).replace(/\?qa=.*$/, '');
+    await page.goto(homeUrl, { waitUntil: 'domcontentloaded', timeout: 20_000 });
+    await waitForApp(page, { navigate: false });
+    await page.locator('#homeInput').setInputFiles(fixturePaths.docx);
+    await page.waitForFunction(() => window.__WB_M1__?.getTask()?.fileCount >= 1, null, { timeout: 8_000 });
+    await page.locator('#homeNextBtn').click();
+    await page.locator('#choiceView').waitFor({ state: 'visible', timeout: 8_000 });
+    await page.locator('#templateInput').setInputFiles(fixturePaths.referenceDocx);
+    await page.locator('#extractSummary').waitFor({ state: 'visible', timeout: 20_000 });
+    const summary = await page.evaluate(() => ({
+      extracted: Array.from(document.querySelectorAll('#extractExtractedList li')).map((node) => node.textContent),
+      missing: Array.from(document.querySelectorAll('#extractMissingList li')).map((node) => node.textContent),
+      pendingPaper: window.__WB_M4__?.pending()?.page?.paper,
+      pendingHeader: window.__WB_M4__?.pending()?.header?.text,
+    }));
+    assert(summary.extracted.includes('页面') && summary.extracted.includes('正文') && summary.extracted.includes('一级标题') && summary.extracted.includes('二级标题') && summary.extracted.includes('三级标题') && summary.extracted.includes('表格') && summary.extracted.includes('页眉页脚'), `已提取分组不完整：${JSON.stringify(summary.extracted)}`);
+    assert(summary.missing.includes('图片') && !summary.extracted.includes('图片'), `图片约束被猜测提取：${JSON.stringify(summary)}`);
+    assert(summary.pendingPaper === 'A4' && summary.pendingHeader === 'MarkPivot 参考页眉', `待确认初稿不正确：${JSON.stringify(summary)}`);
+    await page.screenshot({ path: m4ExtractScreenshotPath, fullPage: false });
+    await page.locator('#extractContinueBtn').click();
+    await page.locator('#specRail').waitFor({ state: 'visible', timeout: 8_000 });
+    const model = await page.evaluate(() => {
+      const spec = window.__WB_M3__?.getSpecification();
+      const banner = document.querySelector('#specExtractBanner');
+      return {
+        paper: spec?.page?.paper,
+        orientation: spec?.page?.orientation,
+        marginTop: spec?.page?.marginTop,
+        bodyColor: spec?.body?.color,
+        h1: spec?.heading1?.color,
+        tableHead: spec?.table?.head,
+        tableBorder: spec?.table?.border,
+        header: spec?.header?.text,
+        footerPage: spec?.footer?.pageNumber,
+        extracted: spec?.coverage?.extracted || [],
+        missing: spec?.coverage?.missing || [],
+        imageStatus: spec?.coverage?.fields?.['image.maxWidth']?.status,
+        imageWidth: spec?.image?.maxWidth,
+        banner: banner && !banner.hidden ? banner.textContent : '',
+        imageMarked: !!document.querySelector('[data-spec-path="image.maxWidth"]')?.classList.contains('is-spec-missing'),
+        roundtrip: window.__WB_M3__?.roundtripOk(),
+      };
+    });
+    assert(model.paper === 'A4' && model.orientation === 'portrait' && model.marginTop === '96px', `页面提取不正确：${JSON.stringify(model)}`);
+    assert(model.bodyColor === '#000000' && model.h1 === '#f1975a' && model.tableHead === '#698ed0', `正文/标题/表头颜色不正确：${JSON.stringify(model)}`);
+    assert(model.header === 'MarkPivot 参考页眉' && model.tableBorder === '#4472c4' && model.footerPage === true, `页眉页脚或表格边框不正确：${JSON.stringify(model)}`);
+    assert(model.missing.includes('图片') && model.imageStatus === 'missing' && model.imageMarked, `未提取图片未标记：${JSON.stringify(model)}`);
+    assert(model.roundtrip && String(model.banner).includes('未提取'), `提取结果未驱动工作台或 roundtrip 失败：${JSON.stringify(model)}`);
+    const origin = new URL(page.appUrl).origin;
+    const fingerprints = await page.evaluate(async ({ templateUrl, sampleUrl }) => {
+      const load = async (url, name) => {
+        const buffer = await fetch(url).then((response) => response.arrayBuffer());
+        return window.__WB_M4__.extractFromFile(new File([buffer], name));
+      };
+      const first = await load(templateUrl, 'reference-template.docx');
+      const firstFp = window.__WB_M4__.fingerprint();
+      const second = await load(templateUrl, 'reference-template.docx');
+      const secondFp = window.__WB_M4__.fingerprint();
+      const sample = await load(sampleUrl, 'sample.docx');
+      return {
+        same: firstFp === secondFp && !!firstFp,
+        paper: first.page.paper,
+        paper2: second.page.paper,
+        sampleMissing: sample.coverage?.missing || [],
+        sampleImage: sample.coverage?.fields?.['image.maxWidth']?.status,
+        sampleWarning: (sample.coverage?.warnings || []).some((item) => String(item).includes('图片')),
+      };
+    }, {
+      templateUrl: `${origin}/tools/fixtures/reference-template.docx`,
+      sampleUrl: `${origin}/tools/fixtures/sample.docx`,
+    });
+    assert(fingerprints.same && fingerprints.paper === 'A4' && fingerprints.paper2 === 'A4', `同一模板重复提取不稳定：${JSON.stringify(fingerprints)}`);
+    assert(fingerprints.sampleMissing.includes('图片') && fingerprints.sampleImage === 'missing' && fingerprints.sampleWarning, `含图片文档被猜测了图片约束：${JSON.stringify(fingerprints)}`);
+    await page.screenshot({ path: m4WorkspaceScreenshotPath, fullPage: false });
+    await page.goto(page.appUrl, { waitUntil: 'domcontentloaded', timeout: 20_000 });
+    await waitForApp(page, { navigate: false });
+    return `A4/96px · H1=${model.h1} · table=${model.tableHead} · 页眉已提取 · 图片未猜测 · fingerprint 稳定`;
+  });
+
+  await check('M5 语义识别不静默改写低置信度标题', async () => {
+    await mkdir(m5Dir, { recursive: true });
+    const homeUrl = String(page.appUrl).replace(/\?qa=.*$/, '');
+    await page.goto(homeUrl, { waitUntil: 'domcontentloaded', timeout: 20_000 });
+    await waitForApp(page, { navigate: false });
+    const origin = new URL(page.appUrl).origin;
+    const mapped = await page.evaluate(async ({ sampleUrl, manualUrl }) => {
+      const load = async (url, name) => {
+        const buffer = await fetch(url).then((response) => response.arrayBuffer());
+        return window.__WB_M5__.mapFromFile(new File([buffer], name));
+      };
+      const sample = await load(sampleUrl, 'sample.docx');
+      const sampleAgain = await load(sampleUrl, 'sample.docx');
+      const manual = await load(manualUrl, 'manual-heading.docx');
+      const heading = (sample.blocks || []).find((block) => block.text === '一级标题');
+      const collapsed = (sample.blocks || []).find((block) => block.text === '四级标题');
+      const chapter = (manual.blocks || []).find((block) => block.text.includes('第一章'));
+      const section = (manual.blocks || []).find((block) => block.text.includes('1.1'));
+      const tableCaption = (manual.blocks || []).find((block) => block.semanticType === 'tableCaption');
+      const figureCaption = (manual.blocks || []).find((block) => block.semanticType === 'figureCaption');
+      return {
+        same: sample.fingerprint === sampleAgain.fingerprint && !!sample.fingerprint,
+        headingType: heading?.semanticType,
+        headingConf: heading?.confidence,
+        headingReview: heading?.needsReview,
+        headingSource: heading?.source,
+        collapsedType: collapsed?.semanticType,
+        collapsedReview: collapsed?.needsReview,
+        chapterType: chapter?.semanticType,
+        chapterReview: chapter?.needsReview,
+        chapterSource: chapter?.source,
+        chapterConf: chapter?.confidence,
+        sectionType: section?.semanticType,
+        sectionReview: section?.needsReview,
+        tableCaptionType: tableCaption?.semanticType,
+        tableCaptionReview: tableCaption?.needsReview,
+        figureCaptionType: figureCaption?.semanticType,
+        figureCaptionReview: figureCaption?.needsReview,
+        manualReview: manual.reviewCount,
+      };
+    }, {
+      sampleUrl: `${origin}/tools/fixtures/sample.docx`,
+      manualUrl: `${origin}/tools/fixtures/manual-heading.docx`,
+    });
+    assert(mapped.same, `同一文件重复识别不稳定：${JSON.stringify(mapped)}`);
+    assert(mapped.headingType === 'heading1' && mapped.headingConf >= 0.9 && mapped.headingReview === false && mapped.headingSource === 'style', `Heading Style 未优先识别：${JSON.stringify(mapped)}`);
+    assert(mapped.collapsedType === 'heading3' && mapped.collapsedReview === false, `四级标题折叠不正确：${JSON.stringify(mapped)}`);
+    assert(mapped.chapterType === 'heading1' && mapped.chapterReview === true && mapped.chapterSource === 'heuristic' && mapped.chapterConf <= 0.84, `手工一级标题未进入需确认：${JSON.stringify(mapped)}`);
+    assert(mapped.sectionType === 'heading2' && mapped.sectionReview === true, `手工二级标题未进入需确认：${JSON.stringify(mapped)}`);
+    assert(mapped.tableCaptionType === 'tableCaption' && mapped.tableCaptionReview === false, `表题识别不正确：${JSON.stringify(mapped)}`);
+    assert(mapped.figureCaptionType === 'figureCaption' && mapped.figureCaptionReview === true, `无图图题应保持需确认：${JSON.stringify(mapped)}`);
+    assert(mapped.manualReview >= 2, `手工夹具待确认数量不足：${JSON.stringify(mapped)}`);
+
+    await page.locator('#homeInput').setInputFiles([fixturePaths.docx, fixturePaths.manualHeading]);
+    await page.waitForFunction(() => window.__WB_M1__?.getTask()?.fileCount >= 2, null, { timeout: 8_000 });
+    await page.locator('#homeNextBtn').click();
+    await page.locator('#choiceView').waitFor({ state: 'visible', timeout: 8_000 });
+    await page.locator('#choiceBlankBtn').click();
+    await page.locator('#specRail').waitFor({ state: 'visible', timeout: 8_000 });
+    await page.waitForFunction(() => {
+      const map = window.__WB_M5__?.getMap();
+      return map && /sample\.docx$/i.test(map.fileName || '') && Array.isArray(map.blocks) && map.blocks.length > 0;
+    }, null, { timeout: 20_000 });
+    await page.locator('#fileRailList .mp-file-name', { hasText: 'manual-heading.docx' }).click();
+    await page.waitForFunction(() => {
+      const map = window.__WB_M5__?.getMap();
+      return map && /manual-heading\.docx$/i.test(map.fileName || '') && map.reviewCount > 0;
+    }, null, { timeout: 20_000 });
+    const before = await page.evaluate(() => ({
+      md: document.querySelector('#mdEditor')?.value || '',
+      status: Array.from(document.querySelectorAll('#fileRailList .mp-file')).map((node) => node.textContent),
+      review: window.__WB_M5__?.reviewCount(),
+      chapter: (window.__WB_M5__?.getMap()?.blocks || []).find((block) => String(block.text).includes('第一章')),
+      visible: !document.querySelector('#semanticMap')?.hidden,
+    }));
+    assert(!/#\s*第一章/.test(before.md), `低置信度标题被静默改写成 Markdown：${before.md.slice(0, 200)}`);
+    assert(before.status.some((text) => text.includes('需确认') && text.includes('待确认')), `文件栏未标出异常文件：${JSON.stringify(before.status)}`);
+    assert(before.visible && before.chapter && before.chapter.needsReview, `工作台未展示待确认语义：${JSON.stringify(before)}`);
+    await page.screenshot({ path: m5ReviewScreenshotPath, fullPage: false });
+    await page.evaluate((id) => window.__WB_M5__.setType(id, 'heading1', true), before.chapter.id);
+    await page.waitForFunction(() => /#\s*第一章/.test(document.querySelector('#mdEditor')?.value || ''), null, { timeout: 8_000 });
+    const after = await page.evaluate(() => ({
+      md: document.querySelector('#mdEditor')?.value || '',
+      remaining: window.__WB_M5__?.reviewCount(),
+    }));
+    assert(/#\s*第一章/.test(after.md), `确认后未把标题写入 Markdown：${after.md.slice(0, 200)}`);
+    assert(after.remaining < before.review, `确认后待确认数量未下降：${before.review} → ${after.remaining}`);
+    await page.screenshot({ path: m5WorkspaceScreenshotPath, fullPage: false });
+    await page.goto(page.appUrl, { waitUntil: 'domcontentloaded', timeout: 20_000 });
+    await waitForApp(page, { navigate: false });
+    return `style H1=${mapped.headingConf} · heuristic H1 需确认 · 确认后写入 # 第一章 · fingerprint 稳定`;
+  });
+
+  await check('M6 工作台实时预览、作用域与模板恢复', async () => {
+    await mkdir(m6Dir, { recursive: true });
+    const homeUrl = String(page.appUrl).replace(/\?qa=.*$/, '');
+    await page.goto(homeUrl, { waitUntil: 'domcontentloaded', timeout: 20_000 });
+    await waitForApp(page, { navigate: false });
+    await page.locator('#homeInput').setInputFiles([fixturePaths.docx, fixturePaths.manualHeading]);
+    await page.waitForFunction(() => window.__WB_M1__?.getTask()?.fileCount >= 2, null, { timeout: 8_000 });
+    await page.locator('#homeNextBtn').click();
+    await page.locator('#choiceBlankBtn').click();
+    await page.locator('#specRail').waitFor({ state: 'visible', timeout: 8_000 });
+    await page.locator('#previewToolbar').waitFor({ state: 'visible', timeout: 8_000 });
+    await page.waitForFunction(() => {
+      const map = window.__WB_M5__?.getMap();
+      return map && /sample\.docx$/i.test(map.fileName || '') && Array.isArray(map.blocks) && map.blocks.length > 0;
+    }, null, { timeout: 20_000 });
+    const mdBefore = await page.locator('#mdEditor').inputValue();
+    const baseline = await page.evaluate(() => ({
+      size: window.__WB_M3__?.getSpecification()?.body?.size,
+      font: window.__WB_M6__?.getPreview()?.computedFont,
+      paper: window.__WB_M6__?.getPreview()?.paper,
+    }));
+    await page.locator('[data-spec-tab="body"]').click();
+    await page.locator('#specBodySize').fill('18px');
+    await page.waitForFunction(() => window.__WB_M6__?.getPreview()?.computedFont === '18px', null, { timeout: 5_000 });
+    assert(await page.locator('#mdEditor').inputValue() === mdBefore, '修改正文设置改写了 Markdown。');
+    assert((await page.evaluate(() => window.__WB_M3__?.getSpecification()?.body?.size)) === '18px', '正文设置未写入 Specification。');
+    await page.locator('[data-preview-mode="source"]').click();
+    await page.waitForFunction(() => window.__WB_M6__?.getPreview()?.mode === 'source', null, { timeout: 5_000 });
+    const sourcePreview = await page.evaluate(() => ({
+      font: window.__WB_M6__?.getPreview()?.computedFont,
+      specSize: window.__WB_M3__?.getSpecification()?.body?.size,
+    }));
+    assert(sourcePreview.font !== '18px' && sourcePreview.specSize === '18px', `原文模式仍套用了目标规范或改写了 spec：${JSON.stringify(sourcePreview)}`);
+    await page.locator('[data-preview-mode="effect"]').click();
+    await page.waitForFunction(() => window.__WB_M6__?.getPreview()?.mode === 'effect' && window.__WB_M6__?.getPreview()?.computedFont === '18px', null, { timeout: 5_000 });
+    await page.locator('#previewZoomIn').click();
+    await page.waitForFunction(() => window.__WB_M6__?.getPreview()?.zoom === 125, null, { timeout: 5_000 });
+    assert((await page.locator('#previewZoomLabel').textContent()) === '125%', '缩放标签未更新。');
+    await page.locator('[data-spec-tab="page"]').click();
+    await page.locator('#specPaper').selectOption('A3');
+    await page.waitForFunction(() => window.__WB_M6__?.getPreview()?.width === 1123, null, { timeout: 5_000 });
+    await page.locator('#specRestoreBtn').click();
+    await page.waitForFunction((size) => window.__WB_M3__?.getSpecification()?.body?.size === size && window.__WB_M6__?.getPreview()?.paper === 'A4', baseline.size, { timeout: 5_000 });
+    assert((await page.evaluate(() => window.__WB_M6__?.getPreview()?.computedFont)) === baseline.font, '恢复模板值后预览未回到模板。');
+    await page.locator('#templateInput').setInputFiles(fixturePaths.referenceDocx);
+    await page.waitForFunction(() => window.__WB_M3__?.getSpecification()?.header?.text === 'MarkPivot 参考页眉', null, { timeout: 15_000 });
+    const afterTemplate = await page.evaluate(() => ({
+      paper: window.__WB_M3__?.getSpecification()?.header?.text,
+      page: window.__WB_M3__?.getSpecification()?.page?.paper,
+      header: document.querySelector('#paperHeader')?.textContent,
+      pageLabel: window.__WB_M6__?.getPreview()?.pageLabel,
+    }));
+    assert(afterTemplate.page === 'A4' && afterTemplate.header === 'MarkPivot 参考页眉', `工作台上传模板未重生成规范初稿：${JSON.stringify(afterTemplate)}`);
+    assert(/第\s*\d+\s*\/\s*\d+\s*页/.test(afterTemplate.pageLabel || ''), `页码文案不正确：${afterTemplate.pageLabel}`);
+    await page.locator('#fileRailList .mp-file-name', { hasText: 'manual-heading.docx' }).click();
+    await page.waitForFunction(() => {
+      const map = window.__WB_M5__?.getMap();
+      return map && /manual-heading\.docx$/i.test(map.fileName || '') && map.reviewCount > 0;
+    }, null, { timeout: 20_000 });
+    const chapter = await page.evaluate(() => (window.__WB_M5__?.getMap()?.blocks || []).find((block) => String(block.text).includes('第一章')));
+    assert(chapter && chapter.id, '手工标题未进入语义列表。');
+    await page.evaluate((id) => window.__WB_M5__.setType(id, 'heading1', true), chapter.id);
+    await page.waitForFunction(() => /#\s*第一章/.test(document.querySelector('#mdEditor')?.value || ''), null, { timeout: 8_000 });
+    await page.locator('#fileRailList .mp-file-name', { hasText: 'sample.docx' }).click();
+    await page.waitForFunction(() => /sample\.docx$/i.test(window.__WB_M6__?.getPreview()?.fileName || ''), null, { timeout: 20_000 });
+    await page.locator('#fileRailList .mp-file-name', { hasText: 'manual-heading.docx' }).click();
+    try {
+      await page.waitForFunction(() => /manual-heading\.docx$/i.test(window.__WB_M6__?.getPreview()?.fileName || '') && /#\s*第一章/.test(document.querySelector('#mdEditor')?.value || ''), null, { timeout: 20_000 });
+    } catch (error) {
+      const snap = await page.evaluate(() => ({
+        fileName: window.__WB_M6__?.getPreview()?.fileName,
+        md: String(document.querySelector('#mdEditor')?.value || '').slice(0, 240),
+        stored: String(window.__WB_M6__?.getPreview()?.md || '').slice(0, 240),
+      }));
+      throw new Error(`切回文件未保留确认后的 Markdown：${error.message} · ${JSON.stringify(snap)}`);
+    }
+    await page.screenshot({ path: m6WorkspaceScreenshotPath, fullPage: false });
+    await page.goto(page.appUrl, { waitUntil: 'domcontentloaded', timeout: 20_000 });
+    await waitForApp(page, { navigate: false });
+    return `即时预览 18px · 原文不套用目标规范 · 恢复模板 · 上传模板页眉 · 切文件保留 # 第一章`;
+  });
+
+  await check('M7 Rule Engine 涂绘、作用域与原文重渲染', async () => {
+    await mkdir(m7Dir, { recursive: true });
+    const homeUrl = String(page.appUrl).replace(/\?qa=.*$/, '');
+    await page.goto(homeUrl, { waitUntil: 'domcontentloaded', timeout: 20_000 });
+    await waitForApp(page, { navigate: false });
+    await page.locator('#homeInput').setInputFiles([fixturePaths.docx, fixturePaths.manualHeading]);
+    await page.waitForFunction(() => window.__WB_M1__?.getTask()?.fileCount >= 2, null, { timeout: 8_000 });
+    await page.locator('#homeNextBtn').click();
+    await page.locator('#choiceBlankBtn').click();
+    await page.locator('#specRail').waitFor({ state: 'visible', timeout: 8_000 });
+    await page.locator('#previewToolbar').waitFor({ state: 'visible', timeout: 8_000 });
+    await page.waitForFunction(() => window.__WB_M5__?.getMap()?.blocks?.length > 0, null, { timeout: 20_000 });
+    await page.locator('#fileRailList .mp-file-name', { hasText: 'manual-heading.docx' }).click();
+    await page.waitForFunction(() => {
+      const map = window.__WB_M5__?.getMap();
+      const chapter = (map?.blocks || []).find((block) => String(block.text).includes('第一章'));
+      return map && /manual-heading\.docx$/i.test(map.fileName || '') && chapter && chapter.semanticType === 'heading1';
+    }, null, { timeout: 20_000 });
+    await page.waitForFunction(() => window.__WB_M7__?.headingFont() === '27px', null, { timeout: 8_000 });
+    const mdBefore = await page.locator('#mdEditor').inputValue();
+    assert(!/#\s*第一章/.test(mdBefore), '未确认启发式标题已写入 Markdown。');
+    const painted = await page.evaluate(() => (window.__WB_M7__?.painted() || []).find((item) => item.type === 'heading1'));
+    assert(painted && painted.fontSize === '27px' && /第一章/.test(painted.text || ''), `启发式标题未按 H1 涂绘：${JSON.stringify(painted)}`);
+    await page.locator('[data-spec-tab="heading"]').click();
+    await page.locator('#specH1Size').fill('30px');
+    await page.waitForFunction(() => window.__WB_M7__?.headingFont() === '30px', null, { timeout: 5_000 });
+    assert(await page.locator('#mdEditor').inputValue() === mdBefore, '修改标题规范改写了 Markdown。');
+    await page.locator('[data-preview-mode="source"]').click();
+    await page.waitForFunction(() => window.__WB_M6__?.getPreview()?.mode === 'source' && (window.__WB_M7__?.painted() || []).length === 0, null, { timeout: 5_000 });
+    assert((await page.evaluate(() => window.__WB_M7__?.headingFont())) === '', '原文模式仍保留规则涂绘。');
+    await page.locator('[data-preview-mode="effect"]').click();
+    await page.waitForFunction(() => window.__WB_M6__?.getPreview()?.mode === 'effect' && window.__WB_M7__?.headingFont() === '30px', null, { timeout: 5_000 });
+    const taskFingerprint = await page.evaluate(() => window.__WB_M7__?.fingerprint());
+    await page.locator('[data-spec-scope="file"]').click();
+    await page.locator('#specH1Size').fill('32px');
+    await page.waitForFunction(() => window.__WB_M7__?.headingFont() === '32px', null, { timeout: 5_000 });
+    assert((await page.evaluate(() => window.__WB_M3__?.getSpecification()?.heading1?.size)) === '32px', '当前文件 override 未写入 H1。');
+    assert((await page.evaluate(() => window.__WB_M7__?.taskRules()?.heading1?.size)) === '30px', '文件 override 污染了任务规范。');
+    await page.locator('#fileRailList .mp-file-name', { hasText: 'sample.docx' }).click();
+    await page.waitForFunction(() => /sample\.docx$/i.test(window.__WB_M6__?.getPreview()?.fileName || '') && window.__WB_M3__?.getSpecification()?.heading1?.size === '30px', null, { timeout: 20_000 });
+    await page.locator('#fileRailList .mp-file-name', { hasText: 'manual-heading.docx' }).click();
+    await page.waitForFunction(() => /manual-heading\.docx$/i.test(window.__WB_M6__?.getPreview()?.fileName || '') && window.__WB_M7__?.headingFont() === '32px', null, { timeout: 20_000 });
+    assert(await page.locator('#mdEditor').inputValue() === mdBefore, '切换规范或文件改写了 Markdown。');
+    assert((await page.evaluate(() => window.__WB_M7__?.fingerprint())) === taskFingerprint, '涂绘过程改写了任务规则指纹。');
+    await page.screenshot({ path: m7WorkspaceScreenshotPath, fullPage: false });
+    await page.goto(page.appUrl, { waitUntil: 'domcontentloaded', timeout: 20_000 });
+    await waitForApp(page, { navigate: false });
+    return '启发式 H1 27px 不写 MD · 改 30px · 原文清除 · 文件 override 32px';
+  });
+
+  await check('M8 导出页、ZIP 结构与失败隔离', async () => {
+    await mkdir(m8Dir, { recursive: true });
+    const sample = await readFile(fixturePaths.docx);
+    const heading = await readFile(fixturePaths.manualHeading);
+    await startTaskToExport(page, [
+      { name: 'sample.docx', mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', buffer: sample },
+      { name: 'bad.docx', mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', buffer: Buffer.from('not a valid docx package', 'utf8') },
+      { name: 'manual-heading.docx', mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', buffer: heading },
+    ]);
+    await page.screenshot({ path: m8ExportScreenshotPath, fullPage: false });
+    await waitForDownload(page, '#exportAllBtn', exportedPaths.taskZip, 120_000);
+    const summary = zipSummary(await readFile(exportedPaths.taskZip));
+    const docxNames = summary.names.filter((name) => name.endsWith('.docx')).sort();
+    assert(docxNames.includes('01 sample.docx') && docxNames.includes('03 manual-heading.docx'), `ZIP 缺少编号 Word：${docxNames.join(', ')}`);
+    assert(docxNames.length === 2 && !docxNames.some((name) => /bad/i.test(name)), `失败文件不应进入 ZIP：${docxNames.join(', ')}`);
+    assert(summary.zip.has('specification.json') && summary.zip.has('处理记录.txt'), 'ZIP 缺少 specification.json 或处理记录。');
+    const spec = JSON.parse(summary.zip.readText('specification.json'));
+    assert(spec.specification && spec.specification.body, 'specification.json 缺少任务规范。');
+    assert(Array.isArray(spec.files) && spec.files.length === 3, `specification.json 未列出全部任务文件：${JSON.stringify(spec.files)}`);
+    const record = summary.zip.readText('处理记录.txt');
+    assert(/bad\.docx/.test(record) && /失败/.test(record), '处理记录未记录失败文件。');
+    docxNames.forEach((name) => {
+      const inner = zipSummary(summary.zip.read(name));
+      assert(inner.zip.has('word/document.xml'), `${name} 缺少 word/document.xml`);
+    });
+    const snap = await page.evaluate(() => window.__WB_M8__.snapshot());
+    assert(snap.results.filter((item) => item.status === 'done').length === 2, `成功数不正确：${JSON.stringify(snap.results)}`);
+    assert(snap.results.filter((item) => item.status === 'error').length === 1, `失败隔离不正确：${JSON.stringify(snap.results)}`);
+    return `ZIP ${docxNames.join(' / ')} · specification.json · 失败隔离 bad.docx`;
+  });
+
+  await check('M8 20 个文件可连续导出', async () => {
+    const sample = await readFile(fixturePaths.docx);
+    const files = Array.from({ length: 20 }, (_, index) => ({
+      name: `doc-${String(index + 1).padStart(2, '0')}.docx`,
+      mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      buffer: sample,
+    }));
+    await startTaskToExport(page, files);
+    await waitForDownload(page, '#exportAllBtn', exportedPaths.taskZip20, 180_000);
+    const summary = zipSummary(await readFile(exportedPaths.taskZip20));
+    const docxNames = summary.names.filter((name) => name.endsWith('.docx')).sort();
+    assert(docxNames.length === 20, `20 文件 ZIP 数量错误：${docxNames.length} · ${docxNames.slice(0, 5).join(', ')}`);
+    assert(docxNames[0] === '01 doc-01.docx' && docxNames[19] === '20 doc-20.docx', `编号不稳定：${docxNames[0]} / ${docxNames[19]}`);
+    assert(summary.zip.has('specification.json') && summary.zip.has('处理记录.txt'), '20 文件 ZIP 缺少规范或记录。');
+    const first = zipSummary(summary.zip.read('01 doc-01.docx'));
+    assert(first.zip.has('word/document.xml'), '20 文件 ZIP 内 DOCX 缺少 document.xml。');
+    return '20 个 Word 连续写入 ZIP · 01–20 编号稳定';
+  });
+
+  await check('M8 导出可取消', async () => {
+    await startTaskToExport(page, [fixturePaths.docx, fixturePaths.manualHeading]);
+    const downloadPromise = page.waitForEvent('download', { timeout: 90_000 }).catch(() => null);
+    await page.locator('#exportAllBtn').click();
+    await page.waitForFunction(() => window.__WB_M8__?.snapshot()?.running === true, null, { timeout: 8_000 });
+    await page.evaluate(() => window.__WB_M8__.cancel());
+    await page.waitForFunction(() => window.__WB_M8__?.snapshot()?.running === false, null, { timeout: 90_000 });
+    const snap = await page.evaluate(() => window.__WB_M8__.snapshot());
+    assert(snap.results.some((item) => item.status === 'cancelled') || snap.results.filter((item) => item.status === 'done').length < snap.results.length, `取消未打断剩余文件：${JSON.stringify(snap.results)}`);
+    assert(snap.results.every((item) => item.status !== 'running'), `取消后仍有运行中文件：${JSON.stringify(snap.results)}`);
+    const download = await downloadPromise;
+    if (download) await download.saveAs(exportedPaths.taskCancelZip);
+    await page.goto(page.appUrl, { waitUntil: 'domcontentloaded', timeout: 20_000 });
+    await waitForApp(page, { navigate: false });
+    return `取消后 ${snap.results.map((item) => item.status).join('/')}`;
+  });
+
+  await check('M9 调度档位与 Worker ping', async () => {
+    const plans = await page.evaluate(() => {
+      const plan = window.__WB_M9__.plan;
+      return {
+        normal: plan(0, 0).tier,
+        p100: plan(0, 120).tier,
+        mb5: plan(5242880, 0).tier,
+        mb20: plan(20971520, 0).tier,
+        mb50: plan(52428800, 2500).tier,
+      };
+    });
+    assert(plans.normal === 'normal' && plans.p100 === '100p' && plans.mb5 === '5mb' && plans.mb20 === '20mb' && plans.mb50 === '50mb', `档位错误：${JSON.stringify(plans)}`);
+    const ping = await page.evaluate(() => window.__WB_M9__.pingWorker());
+    assert(ping && ping.ok, `Worker ping 失败：${JSON.stringify(ping)}`);
+    return `档位 ${plans.normal}/${plans.p100}/${plans.mb5}/${plans.mb20}/${plans.mb50} · ping ok`;
+  });
+
+  await check('M9 大文件分片导入可见进度', async () => {
+    await mkdir(m9Dir, { recursive: true });
+    const large = await readFile(fixturePaths.largeDocx);
+    await startTaskToWorkspace(page, [{
+      name: 'large-doc.docx',
+      mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      buffer: large,
+    }]);
+    await page.waitForFunction(() => window.__WB_M9__?.snapshot()?.running === false && (window.__WB_M9__?.snapshot()?.yields || 0) > 0, null, { timeout: 90_000 });
+    const snap = await page.evaluate(() => window.__WB_M9__.snapshot());
+    assert(snap.yields > 0, `大文件导入未让出主线程：${JSON.stringify(snap)}`);
+    assert(snap.tier === '5mb' || snap.tier === '100p' || snap.tier === '20mb', `未命中大文件档位：${snap.tier}`);
+    await page.screenshot({ path: m9WorkspaceScreenshotPath, fullPage: false });
+    return `tier=${snap.tier} · yields=${snap.yields} · ${snap.files.map((item) => item.status).join('/')}`;
+  });
+
+  await check('M9 分片任务可取消', async () => {
+    await page.evaluate(() => { window.__WB_M9__.runDummy(2000); });
+    await page.waitForFunction(() => window.__WB_M9__?.snapshot()?.running === true, null, { timeout: 8_000 });
+    await page.screenshot({ path: m9JobScreenshotPath, fullPage: false });
+    await page.evaluate(() => window.__WB_M9__.cancel());
+    await page.waitForFunction(() => window.__WB_M9__?.snapshot()?.running === false, null, { timeout: 30_000 });
+    const snap = await page.evaluate(() => window.__WB_M9__.snapshot());
+    assert(snap.cancelled === true, `取消标记未生效：${JSON.stringify(snap)}`);
+    assert(snap.progress < snap.total || snap.kind === 'test', `取消后进度异常：${JSON.stringify(snap)}`);
+    const bannerHidden = await page.locator('#jobBanner').evaluate((node) => node.hidden);
+    assert(bannerHidden, '取消后进度条仍显示。');
+    return `取消 · progress ${snap.progress}/${snap.total} · yields=${snap.yields}`;
+  });
+
+  await check('M9 单文件失败不拖垮任务', async () => {
+    const sample = await readFile(fixturePaths.docx);
+    await startTaskToWorkspace(page, [
+      { name: 'bad.docx', mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', buffer: Buffer.from('not a valid docx package', 'utf8') },
+      { name: 'sample.docx', mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', buffer: sample },
+    ]);
+    await page.waitForFunction(() => (window.__WB_M9__?.snapshot()?.files || []).some((item) => item.status === '导入失败'), null, { timeout: 60_000 });
+    let snap = await page.evaluate(() => window.__WB_M9__.snapshot());
+    assert(snap.files.length === 2, `任务文件数被失败文件打断：${JSON.stringify(snap.files)}`);
+    assert(snap.files.some((item) => item.name === 'bad.docx' && item.status === '导入失败'), `损坏文件未隔离：${JSON.stringify(snap.files)}`);
+    await page.locator('#fileRailList .mp-file-name', { hasText: 'sample.docx' }).click();
+    await page.waitForFunction(() => (window.__WB_M9__?.snapshot()?.files || []).some((item) => item.name === 'sample.docx' && /已载入|需确认/.test(item.status)), null, { timeout: 60_000 });
+    snap = await page.evaluate(() => window.__WB_M9__.snapshot());
+    assert(snap.files.some((item) => item.name === 'sample.docx' && /已载入|需确认/.test(item.status)), `完好文件未能继续：${JSON.stringify(snap.files)}`);
+    assert(snap.files.some((item) => item.name === 'bad.docx' && item.status === '导入失败'), `切换文件后失败状态丢失：${JSON.stringify(snap.files)}`);
+    await page.goto(page.appUrl, { waitUntil: 'domcontentloaded', timeout: 20_000 });
+    await waitForApp(page, { navigate: false });
+    return snap.files.map((item) => `${item.name}=${item.status}`).join(' · ');
+  });
+
+  await check('M10 Windows Chrome 内核', async () => {
+    const ua = await page.evaluate(() => navigator.userAgent);
+    assert(/Windows NT/i.test(ua), `非 Windows 环境：${ua}`);
+    assert(/Chrome\//i.test(ua), `非 Chrome 内核：${ua}`);
+    const win = ua.match(/Windows NT [\d.]+/);
+    const chrome = ua.match(/Chrome\/[\d.]+/);
+    return `${win ? win[0] : 'Windows'} · ${chrome ? chrome[0] : 'Chrome'} · vendor 路径已验证`;
+  });
+
+  await check('M11 规范库增删改复制导入导出', async () => {
+    await mkdir(m11Dir, { recursive: true });
+    const homeUrl = String(page.appUrl).replace(/\?qa=.*$/, '');
+    const importPath = path.join(m11Dir, 'import-spec.json');
+    await writeFile(importPath, `${JSON.stringify({ name: '导入规范', body: { size: '19px' }, page: { paper: 'A3' } }, null, 2)}\n`, 'utf8');
+    await page.goto(homeUrl, { waitUntil: 'domcontentloaded', timeout: 20_000 });
+    await waitForApp(page, { navigate: false });
+    await page.evaluate(() => localStorage.removeItem('markpivot-spec-library-v1'));
+    await page.locator('[data-app-view="specs"]').click();
+    await page.locator('#specsView').waitFor({ state: 'visible', timeout: 5_000 });
+    assert(await page.locator('#libraryNewBtn').isVisible(), '规范库缺少新建。');
+    assert(await page.locator('#libraryEmpty').isVisible(), '空库提示未显示。');
+    await page.screenshot({ path: m11LibraryScreenshotPath, fullPage: false });
+    await page.locator('#libraryNewBtn').click();
+    await page.locator('#libraryEditor').waitFor({ state: 'visible', timeout: 5_000 });
+    await page.locator('#libraryEditorName').fill('投标模板');
+    await page.locator('#libraryEditorTabs [data-lib-tab="body"]').click();
+    await page.locator('#lib-specBodySize').fill('20px');
+    await page.screenshot({ path: m11EditorScreenshotPath, fullPage: false });
+    await page.locator('#libraryEditorSaveBtn').click();
+    await page.waitForFunction(() => (window.__WB_M11__?.list() || []).some((item) => item.name === '投标模板' && item.bodySize === '20px'), null, { timeout: 5_000 });
+    await page.locator('#specLibraryList [data-lib-action="copy"]').click();
+    await page.waitForFunction(() => (window.__WB_M11__?.list() || []).length >= 2, null, { timeout: 5_000 });
+    page.once('dialog', (dialog) => dialog.accept('正式投标'));
+    await page.locator('#specLibraryList [data-lib-action="rename"]').first().click();
+    await page.waitForFunction(() => (window.__WB_M11__?.list() || []).some((item) => item.name === '正式投标'), null, { timeout: 5_000 });
+    const [download] = await Promise.all([
+      page.waitForEvent('download', { timeout: 8_000 }),
+      page.locator('#specLibraryList [data-lib-action="export"]').first().click(),
+    ]);
+    const downloadPath = path.join(m11Dir, download.suggestedFilename() || 'exported-spec.json');
+    await download.saveAs(downloadPath);
+    const exported = JSON.parse(await readFile(downloadPath, 'utf8'));
+    assert(exported.body && exported.page, `导出 JSON 不是 Specification：${Object.keys(exported).join(',')}`);
+    page.once('dialog', (dialog) => dialog.accept());
+    await page.locator('#specLibraryList .mp-library-card', { hasText: '副本' }).locator('[data-lib-action="delete"]').click();
+    await page.waitForFunction(() => !(window.__WB_M11__?.list() || []).some((item) => String(item.name).includes('副本')), null, { timeout: 5_000 });
+    await page.locator('#libraryJsonInput').setInputFiles(importPath);
+    await page.waitForFunction(() => (window.__WB_M11__?.list() || []).some((item) => item.name === '导入规范' && item.bodySize === '19px' && item.paper === 'A3'), null, { timeout: 5_000 });
+    await page.locator('#libraryWordInput').setInputFiles(fixturePaths.referenceDocx);
+    await page.locator('#libraryEditor').waitFor({ state: 'visible', timeout: 20_000 });
+    assert((await page.evaluate(() => window.__WB_M11__?.mode())) === 'create', '从 Word 创建未打开编辑器。');
+    await page.locator('#libraryEditorSaveBtn').click();
+    await page.waitForFunction(() => (window.__WB_M11__?.list() || []).some((item) => item.source === 'word'), null, { timeout: 5_000 });
+    const names = await page.evaluate(() => (window.__WB_M11__?.list() || []).map((item) => item.name));
+    return `保存=${names.join(' / ')} · JSON roundtrip · Word 创建`;
+  });
+
+  await check('M11 规范库不覆盖当前任务', async () => {
+    await startTaskToWorkspace(page, fixturePaths.docx);
+    const before = await page.evaluate(() => ({
+      size: window.__WB_M3__?.getSpecification()?.body?.size,
+      lib: (window.__WB_M2__?.library() || []).length,
+    }));
+    await page.locator('[data-spec-tab="body"]').click();
+    await page.locator('#specBodySize').fill('18px');
+    await page.waitForFunction(() => window.__WB_M3__?.getSpecification()?.body?.size === '18px', null, { timeout: 5_000 });
+    assert((await page.evaluate(() => (window.__WB_M2__?.library() || []).length)) === before.lib, '任务内修改写入了规范库。');
+    await page.locator('[data-app-view="specs"]').click();
+    await page.locator('#specLibraryList [data-lib-action="edit"]').first().click();
+    await page.locator('#libraryEditor').waitFor({ state: 'visible', timeout: 5_000 });
+    await page.locator('#libraryEditorTabs [data-lib-tab="body"]').click();
+    await page.locator('#lib-specBodySize').fill('22px');
+    await page.locator('#libraryEditorSaveBtn').click();
+    await page.locator('#resumeTaskBtn').click();
+    await page.locator('#specRail').waitFor({ state: 'visible', timeout: 8_000 });
+    const after = await page.evaluate(() => ({
+      size: window.__WB_M3__?.getSpecification()?.body?.size,
+      libraryHas22: (window.__WB_M11__?.list() || []).some((item) => item.bodySize === '22px'),
+    }));
+    assert(after.size === '18px', `编辑规范库改写了任务规范：${after.size}`);
+    assert(after.libraryHas22, '规范库编辑未保存。');
+    return `任务 18px 未变 · 规范库已更新 22px · 库 ${before.lib} 条`;
+  });
+}
+
+async function smokeBrowserChannel(appUrl, channel, label) {
+  let extra;
+  try {
+    extra = await chromium.launch({ channel, headless: true });
+  } catch (error) {
+    skip(`M10 ${label} 本地运行库`, `${label} 通道不可用，已用 Playwright Chromium 覆盖 Windows Chrome 内核`);
+    return;
+  }
+  try {
+    await check(`M10 ${label} 本地运行库`, async () => {
+      const page = await extra.newPage({ viewport: { width: 1440, height: 900 } });
+      try {
+        const homeUrl = String(appUrl).replace(/\?qa=.*$/, '');
+        await page.goto(homeUrl, { waitUntil: 'domcontentloaded', timeout: 20_000 });
+        await waitForApp(page, { navigate: false });
+        const sources = await page.evaluate(() => (window.__WB_M10__ && window.__WB_M10__.sources()) || []);
+        assert(sources.length === 9 && sources.every((source) => source === 'vendor'), `${label} 未走本地运行库：${sources.join('/')}`);
+        const text = await page.locator('#libraryStatus').textContent();
+        assert(text.includes('本地运行库可用'), `${label} 状态不正确：${text}`);
+        return `${label} · vendor 9/9 · 可离线`;
+      } finally {
+        await page.close().catch(() => {});
+      }
+    });
+  } finally {
+    if (extra) await extra.close().catch(() => {});
+  }
 }
 
 async function main() {
   await mkdir(baselineDir, { recursive: true });
   await mkdir(artifactDir, { recursive: true });
+  await mkdir(m1Dir, { recursive: true });
+  await mkdir(m2Dir, { recursive: true });
+  await mkdir(m10Dir, { recursive: true });
+  await mkdir(m11Dir, { recursive: true });
   await checkStaticContracts();
 
   const server = makeStaticServer();
@@ -1505,7 +2374,7 @@ async function main() {
   let appUrl = '';
   try {
     const port = await listen(server);
-    appUrl = `http://127.0.0.1:${port}/${encodeURIComponent('文档互转工作台.html')}?qa=v4.1-${Date.now()}`;
+    appUrl = `http://127.0.0.1:${port}/${encodeURIComponent('MarkPivot.html')}?qa=m1-${Date.now()}`;
     try {
       browser = await chromium.launch({ headless: true });
       page = await browser.newPage({ viewport: { width: 1440, height: 1100 }, deviceScaleFactor: 1 });
@@ -1569,9 +2438,11 @@ async function main() {
       });
       page.on('pageerror', (error) => browserEvents.pageErrors.push(error.message));
       page.on('response', (response) => {
-        if (response.status() >= 400) browserEvents.httpErrors.push(`${response.status()} ${response.url()}`);
+        if (response.status() >= 400 && !/\.map(?:\?|$)/i.test(response.url())) browserEvents.httpErrors.push(`${response.status()} ${response.url()}`);
       });
       await runBrowserChecks(page);
+      await smokeBrowserChannel(appUrl, 'chrome', 'Chrome');
+      await smokeBrowserChannel(appUrl, 'msedge', 'Edge');
     } catch (error) {
       const detail = error?.message || String(error);
       if (/executable doesn't exist|browserType\.launch|Executable doesn't exist/i.test(detail)) {
@@ -1609,7 +2480,7 @@ async function main() {
   const skipped = checks.filter((item) => item.status === 'SKIP').length;
   const htmlStat = await stat(appFile).catch(() => ({ size: 0 }));
   const report = {
-    version: 'V4.1',
+    version: 'M11',
     generatedAt: new Date().toISOString(),
     appUrl,
     html: { path: appFile, bytes: htmlStat.size, kb: Number((htmlStat.size / 1024).toFixed(1)) },
@@ -1624,6 +2495,22 @@ async function main() {
       v4TableDesktopScreenshot: v4TableDesktopScreenshotPath,
       v4TableMobileScreenshot: v4TableMobileScreenshotPath,
       v4WideTableScreenshot: v4WideTableScreenshotPath,
+      m1HomeScreenshot: m1HomeScreenshotPath,
+      m1ChoiceScreenshot: m1ChoiceScreenshotPath,
+      m1WorkspaceScreenshot: m1WorkspaceScreenshotPath,
+      m2WorkspaceScreenshot: m2WorkspaceScreenshotPath,
+      m4ExtractScreenshot: m4ExtractScreenshotPath,
+      m4WorkspaceScreenshot: m4WorkspaceScreenshotPath,
+      m5ReviewScreenshot: m5ReviewScreenshotPath,
+      m5WorkspaceScreenshot: m5WorkspaceScreenshotPath,
+      m6WorkspaceScreenshot: m6WorkspaceScreenshotPath,
+      m7WorkspaceScreenshot: m7WorkspaceScreenshotPath,
+      m8ExportScreenshot: m8ExportScreenshotPath,
+      m9WorkspaceScreenshot: m9WorkspaceScreenshotPath,
+      m9JobScreenshot: m9JobScreenshotPath,
+      m10HomeScreenshot: m10HomeScreenshotPath,
+      m11LibraryScreenshot: m11LibraryScreenshotPath,
+      m11EditorScreenshot: m11EditorScreenshotPath,
     },
     browser: browserEvents,
     summary: { passed, failed, skipped },

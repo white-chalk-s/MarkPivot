@@ -1,4 +1,4 @@
-import { mkdir, stat, writeFile } from 'node:fs/promises';
+import { mkdir, stat, writeFile, copyFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
@@ -27,6 +27,8 @@ const v4TablePath = path.join(fixtureDir, 'v4-table.md');
 const v4WideTablePath = path.join(fixtureDir, 'v4-wide-table.md');
 const docxPath = path.join(fixtureDir, 'sample.docx');
 const referenceDocxPath = path.join(fixtureDir, 'reference-template.docx');
+const manualHeadingDocxPath = path.join(fixtureDir, 'manual-heading.docx');
+const largeDocxPath = path.join(fixtureDir, 'large-doc.docx');
 const xlsxPath = path.join(fixtureDir, 'sample.xlsx');
 const imagePath = path.join(imageDir, 'sample.png');
 const codeTick = String.fromCharCode(96);
@@ -264,6 +266,48 @@ async function buildDocx() {
   await writeFile(docxPath, await Packer.toBuffer(document));
 }
 
+async function buildLargeDocx() {
+  const children = [
+    new Paragraph({ text: 'M9 大文件性能夹具', heading: HeadingLevel.HEADING_1 }),
+  ];
+  for (let i = 1; i <= 220; i += 1) {
+    children.push(new Paragraph({ text: `段落 ${i}：用于分片解析与进度让出，不作为黄金语义样本。` }));
+  }
+  for (let t = 1; t <= 20; t += 1) {
+    children.push(new Table({
+      width: { size: 100, type: WidthType.PERCENTAGE },
+      rows: [
+        new TableRow({
+          children: [
+            new TableCell({ children: [new Paragraph({ text: `表${t}A` })] }),
+            new TableCell({ children: [new Paragraph({ text: `表${t}B` })] }),
+          ],
+        }),
+        new TableRow({
+          children: [
+            new TableCell({ children: [new Paragraph({ text: '1' })] }),
+            new TableCell({ children: [new Paragraph({ text: '2' })] }),
+          ],
+        }),
+      ],
+    }));
+  }
+  for (let i = 1; i <= 50; i += 1) {
+    children.push(new Paragraph({
+      children: [
+        new ImageRun({ data: imageBuffer, type: 'png', transformation: { width: 8, height: 8 } }),
+        new TextRun({ text: ` 图 ${i}` }),
+      ],
+    }));
+  }
+  const document = new Document({
+    creator: '文档互转工作台 QA',
+    description: 'M9 large-doc fixture',
+    sections: [{ children }],
+  });
+  await writeFile(largeDocxPath, await Packer.toBuffer(document));
+}
+
 function crc32(buffer) {
   let crc = 0xffffffff;
   for (const byte of buffer) {
@@ -336,18 +380,22 @@ function createStoredZip(entries) {
 async function buildReferenceDocx() {
   const documentXml = [
     '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>',
-    '<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:body>',
+    '<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><w:body>',
     '<w:p><w:pPr><w:pStyle w:val="Title"/></w:pPr><w:r><w:t>V2 Word 模板参考标题</w:t></w:r></w:p>',
     '<w:p><w:pPr><w:pStyle w:val="Normal"/></w:pPr><w:r><w:t>正文无显式颜色，应按 OOXML 默认黑处理。</w:t></w:r></w:p>',
     '<w:p><w:pPr><w:pStyle w:val="Heading1"/></w:pPr><w:r><w:t>主题色一级标题</w:t></w:r></w:p>',
     '<w:p><w:pPr><w:pStyle w:val="Heading2"/></w:pPr><w:r><w:t>无色二级标题</w:t></w:r></w:p>',
     '<w:p><w:pPr><w:pStyle w:val="Heading3"/></w:pPr><w:r><w:t>显式紫色三级标题</w:t></w:r></w:p>',
     '<w:p><w:pPr><w:pStyle w:val="Heading4"/></w:pPr><w:r><w:t>无色四级标题</w:t></w:r></w:p>',
-    '<w:tbl><w:tblPr><w:tblStyle w:val="V2Table"/></w:tblPr>',
+    '<w:tbl><w:tblPr><w:tblStyle w:val="V2Table"/><w:tblBorders>',
+    '<w:top w:val="single" w:sz="4" w:space="0" w:color="4472C4"/><w:left w:val="single" w:sz="4" w:space="0" w:color="4472C4"/>',
+    '<w:bottom w:val="single" w:sz="4" w:space="0" w:color="4472C4"/><w:right w:val="single" w:sz="4" w:space="0" w:color="4472C4"/>',
+    '<w:insideH w:val="single" w:sz="4" w:space="0" w:color="4472C4"/><w:insideV w:val="single" w:sz="4" w:space="0" w:color="4472C4"/>',
+    '</w:tblBorders></w:tblPr>',
     '<w:tr><w:tc><w:tcPr><w:shd w:val="clear" w:themeFill="accent1" w:themeFillTint="33"/></w:tcPr><w:p><w:r><w:t>字段</w:t></w:r></w:p></w:tc>',
     '<w:tc><w:tcPr><w:shd w:val="clear" w:themeFill="accent1" w:themeFillTint="33"/></w:tcPr><w:p><w:r><w:t>值</w:t></w:r></w:p></w:tc></w:tr>',
     '<w:tr><w:tc><w:p><w:r><w:t>主题色</w:t></w:r></w:p></w:tc><w:tc><w:p><w:r><w:t>已定义</w:t></w:r></w:p></w:tc></w:tr></w:tbl>',
-    '<w:sectPr><w:pgMar w:top="1440" w:right="1440" w:bottom="1440" w:left="1440"/></w:sectPr>',
+    '<w:sectPr><w:headerReference w:type="default" r:id="rId4"/><w:footerReference w:type="default" r:id="rId5"/><w:pgSz w:w="11906" w:h="16838"/><w:pgMar w:top="1440" w:right="1440" w:bottom="1440" w:left="1440"/></w:sectPr>',
     '</w:body></w:document>',
   ].join('');
   const stylesXml = [
@@ -378,10 +426,13 @@ async function buildReferenceDocx() {
     '<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/>',
     '<Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/><Override PartName="/word/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.styles+xml"/>',
     '<Override PartName="/word/theme/theme1.xml" ContentType="application/vnd.openxmlformats-officedocument.theme+xml"/><Override PartName="/word/settings.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.settings+xml"/>',
+    '<Override PartName="/word/header1.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.header+xml"/><Override PartName="/word/footer1.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.footer+xml"/>',
     '<Override PartName="/docProps/core.xml" ContentType="application/vnd.openxmlformats-package.core-properties+xml"/><Override PartName="/docProps/app.xml" ContentType="application/vnd.openxmlformats-officedocument.extended-properties+xml"/></Types>',
   ].join('');
   const rootRels = '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/><Relationship Id="rId2" Type="http://schemas.openxmlformats.org/package/2006/relationships/metadata/core-properties" Target="docProps/core.xml"/><Relationship Id="rId3" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/extended-properties" Target="docProps/app.xml"/></Relationships>';
-  const documentRels = '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/><Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/theme" Target="theme/theme1.xml"/><Relationship Id="rId3" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/settings" Target="settings.xml"/></Relationships>';
+  const documentRels = '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/><Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/theme" Target="theme/theme1.xml"/><Relationship Id="rId3" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/settings" Target="settings.xml"/><Relationship Id="rId4" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/header" Target="header1.xml"/><Relationship Id="rId5" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/footer" Target="footer1.xml"/></Relationships>';
+  const headerXml = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><w:hdr xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:p><w:r><w:t>MarkPivot 参考页眉</w:t></w:r></w:p></w:hdr>';
+  const footerXml = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><w:ftr xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:p><w:r><w:t>第 </w:t></w:r><w:r><w:fldChar w:fldCharType="begin"/></w:r><w:r><w:instrText xml:space="preserve"> PAGE </w:instrText></w:r><w:r><w:fldChar w:fldCharType="end"/></w:r><w:r><w:t> 页</w:t></w:r></w:p></w:ftr>';
   const settingsXml = '<w:settings xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:zoom w:percent="100"/></w:settings>';
   const coreXml = '<cp:coreProperties xmlns:cp="http://schemas.openxmlformats.org/package/2006/metadata/core-properties" xmlns:dc="http://purl.org/dc/elements/1.1/"><dc:title>V2 Word 模板参考</dc:title><dc:creator>文档互转工作台 QA</dc:creator></cp:coreProperties>';
   const appXml = '<Properties xmlns="http://schemas.openxmlformats.org/officeDocument/2006/extended-properties"><Application>文档互转工作台 QA</Application></Properties>';
@@ -390,9 +441,61 @@ async function buildReferenceDocx() {
     { name: '_rels/.rels', data: rootRels },
     { name: 'word/document.xml', data: documentXml },
     { name: 'word/_rels/document.xml.rels', data: documentRels },
+    { name: 'word/header1.xml', data: headerXml },
+    { name: 'word/footer1.xml', data: footerXml },
     { name: 'word/styles.xml', data: stylesXml },
     { name: 'word/theme/theme1.xml', data: themeXml },
     { name: 'word/settings.xml', data: settingsXml },
+    { name: 'docProps/core.xml', data: coreXml },
+    { name: 'docProps/app.xml', data: appXml },
+  ]));
+}
+
+async function buildManualHeadingDocx() {
+  const documentXml = [
+    '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>',
+    '<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:body>',
+    '<w:p><w:pPr><w:pStyle w:val="Normal"/></w:pPr><w:r><w:t>本规范适用于内部文档。</w:t></w:r></w:p>',
+    '<w:p><w:pPr><w:pStyle w:val="Normal"/></w:pPr><w:r><w:rPr><w:b/><w:sz w:val="32"/><w:szCs w:val="32"/></w:rPr><w:t>第一章 总则</w:t></w:r></w:p>',
+    '<w:p><w:pPr><w:pStyle w:val="Normal"/></w:pPr><w:r><w:rPr><w:b/><w:sz w:val="26"/><w:szCs w:val="26"/></w:rPr><w:t>1.1 适用范围</w:t></w:r></w:p>',
+    '<w:p><w:pPr><w:pStyle w:val="Normal"/></w:pPr><w:r><w:t>本文件用于验证手工加粗标题与图表题识别，不应被误判为标题。</w:t></w:r></w:p>',
+    '<w:tbl><w:tblPr><w:tblBorders>',
+    '<w:top w:val="single" w:sz="4" w:space="0" w:color="000000"/><w:left w:val="single" w:sz="4" w:space="0" w:color="000000"/>',
+    '<w:bottom w:val="single" w:sz="4" w:space="0" w:color="000000"/><w:right w:val="single" w:sz="4" w:space="0" w:color="000000"/>',
+    '<w:insideH w:val="single" w:sz="4" w:space="0" w:color="000000"/><w:insideV w:val="single" w:sz="4" w:space="0" w:color="000000"/>',
+    '</w:tblBorders></w:tblPr>',
+    '<w:tr><w:tc><w:p><w:r><w:t>字段</w:t></w:r></w:p></w:tc><w:tc><w:p><w:r><w:t>值</w:t></w:r></w:p></w:tc></w:tr>',
+    '<w:tr><w:tc><w:p><w:r><w:t>标题样式</w:t></w:r></w:p></w:tc><w:tc><w:p><w:r><w:t>仅 Normal</w:t></w:r></w:p></w:tc></w:tr></w:tbl>',
+    '<w:p><w:pPr><w:pStyle w:val="Normal"/></w:pPr><w:r><w:t>表 1 字段说明</w:t></w:r></w:p>',
+    '<w:p><w:pPr><w:pStyle w:val="Normal"/></w:pPr><w:r><w:t>图 1 示意图</w:t></w:r></w:p>',
+    '<w:sectPr><w:pgSz w:w="11906" w:h="16838"/><w:pgMar w:top="1440" w:right="1440" w:bottom="1440" w:left="1440"/></w:sectPr>',
+    '</w:body></w:document>',
+  ].join('');
+  const stylesXml = [
+    '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>',
+    '<w:styles xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">',
+    '<w:docDefaults><w:rPrDefault><w:rPr><w:sz w:val="24"/></w:rPr></w:rPrDefault></w:docDefaults>',
+    '<w:style w:type="paragraph" w:default="1" w:styleId="Normal"><w:name w:val="Normal"/><w:rPr><w:sz w:val="24"/></w:rPr></w:style>',
+    '</w:styles>',
+  ].join('');
+  const contentTypes = [
+    '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>',
+    '<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/>',
+    '<Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/>',
+    '<Override PartName="/word/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.styles+xml"/>',
+    '<Override PartName="/docProps/core.xml" ContentType="application/vnd.openxmlformats-package.core-properties+xml"/>',
+    '<Override PartName="/docProps/app.xml" ContentType="application/vnd.openxmlformats-officedocument.extended-properties+xml"/></Types>',
+  ].join('');
+  const rootRels = '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/><Relationship Id="rId2" Type="http://schemas.openxmlformats.org/package/2006/relationships/metadata/core-properties" Target="docProps/core.xml"/><Relationship Id="rId3" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/extended-properties" Target="docProps/app.xml"/></Relationships>';
+  const documentRels = '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>';
+  const coreXml = '<cp:coreProperties xmlns:cp="http://schemas.openxmlformats.org/package/2006/metadata/core-properties" xmlns:dc="http://purl.org/dc/elements/1.1/"><dc:title>手工标题语义夹具</dc:title><dc:creator>文档互转工作台 QA</dc:creator></cp:coreProperties>';
+  const appXml = '<Properties xmlns="http://schemas.openxmlformats.org/officeDocument/2006/extended-properties"><Application>文档互转工作台 QA</Application></Properties>';
+  await writeFile(manualHeadingDocxPath, createStoredZip([
+    { name: '[Content_Types].xml', data: contentTypes },
+    { name: '_rels/.rels', data: rootRels },
+    { name: 'word/document.xml', data: documentXml },
+    { name: 'word/_rels/document.xml.rels', data: documentRels },
+    { name: 'word/styles.xml', data: stylesXml },
     { name: 'docProps/core.xml', data: coreXml },
     { name: 'docProps/app.xml', data: appXml },
   ]));
@@ -477,17 +580,27 @@ await writeFile(v4TablePath, v4TableMarkdown, 'utf8');
 await writeFile(v4WideTablePath, v4WideTableMarkdown, 'utf8');
 await buildDocx();
 await buildReferenceDocx();
+await buildManualHeadingDocx();
+await buildLargeDocx();
 await buildXlsx();
 
-  const [mdStat, coverStat, v4TableStat, v4WideTableStat, docxStat, referenceDocxStat, xlsxStat, imageStat] = await Promise.all([
+const templatesDir = path.join(toolsDir, '..', 'templates');
+const productTemplatePath = path.join(templatesDir, 'reference-template.docx');
+await mkdir(templatesDir, { recursive: true });
+await copyFile(referenceDocxPath, productTemplatePath);
+
+  const [mdStat, coverStat, v4TableStat, v4WideTableStat, docxStat, referenceDocxStat, manualHeadingDocxStat, largeDocxStat, xlsxStat, imageStat, templateStat] = await Promise.all([
   stat(mdPath),
   stat(coverPath),
   stat(v4TablePath),
   stat(v4WideTablePath),
   stat(docxPath),
   stat(referenceDocxPath),
+  stat(manualHeadingDocxPath),
+  stat(largeDocxPath),
   stat(xlsxPath),
   stat(imagePath),
+  stat(productTemplatePath),
 ]);
 
 console.log(JSON.stringify({
@@ -499,7 +612,10 @@ console.log(JSON.stringify({
     v4WideTable: { path: v4WideTablePath, bytes: v4WideTableStat.size },
     docx: { path: docxPath, bytes: docxStat.size },
     referenceDocx: { path: referenceDocxPath, bytes: referenceDocxStat.size },
+    manualHeadingDocx: { path: manualHeadingDocxPath, bytes: manualHeadingDocxStat.size },
+    largeDocx: { path: largeDocxPath, bytes: largeDocxStat.size },
     xlsx: { path: xlsxPath, bytes: xlsxStat.size },
     image: { path: imagePath, bytes: imageStat.size },
+    template: { path: productTemplatePath, bytes: templateStat.size },
   },
 }, null, 2));
