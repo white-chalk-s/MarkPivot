@@ -1759,7 +1759,7 @@ async function runBrowserChecks(page) {
     assert(model.roundtrip, 'Specification JSON roundtrip 失败。');
     assert(model.hasPage && model.hasHeader && model.hasFooter && model.missingFilled && model.uiBound, `Specification 模型不完整：${JSON.stringify(model)}`);
     const mdBefore = await page.locator('#mdEditor').inputValue();
-    await page.locator('#specBodySize').fill('18px');
+    await page.locator('#specBodySize').selectOption('18px');
     await page.waitForFunction(() => window.__WB_M3__?.getSpecification()?.body?.size === '18px', null, { timeout: 5_000 });
     assert(await page.locator('#mdEditor').inputValue() === mdBefore, '修改规范改写了 Markdown 语义。');
     assert(await page.evaluate(() => window.__WB_M2__?.library()?.length) === 0, '任务内修改自动写入了规范库。');
@@ -1771,18 +1771,18 @@ async function runBrowserChecks(page) {
       current: window.__WB_M2__?.getTask()?.currentFileId,
       files: Array.from(document.querySelectorAll('#fileRailList [data-file-id]')).map((node) => node.dataset.fileId),
     }));
-    await page.locator('#specBodyColor').fill('#112233');
-    await page.waitForFunction(() => window.__WB_M3__?.getSpecification()?.body?.color === '#112233', null, { timeout: 5_000 });
-    assert((await page.evaluate(() => window.__WB_M2__?.getOverride()?.body?.color)) === '#112233', '当前文件 override 未写入。');
+    await page.locator('#specBodyColor').selectOption('#2F5496');
+    await page.waitForFunction(() => window.__WB_M3__?.getSpecification()?.body?.color === '#2F5496', null, { timeout: 5_000 });
+    assert((await page.evaluate(() => window.__WB_M2__?.getOverride()?.body?.color)) === '#2F5496', '当前文件 override 未写入。');
     const otherId = fileIds.files.find((id) => id && id !== fileIds.current);
     assert(otherId, '测试需要至少两个任务文件。');
     await page.locator(`#fileRailList [data-file-id="${otherId}"] .mp-file-name`).click();
     await page.waitForFunction(({ id, color }) => (
       window.__WB_M2__?.getTask()?.currentFileId === id
       && window.__WB_M3__?.getSpecification()?.body?.color !== color
-    ), { id: otherId, color: '#112233' }, { timeout: 10_000 });
+    ), { id: otherId, color: '#2F5496' }, { timeout: 10_000 });
     await page.locator(`#fileRailList [data-file-id="${fileIds.current}"] .mp-file-name`).click();
-    await page.waitForFunction((color) => window.__WB_M3__?.getSpecification()?.body?.color === color, '#112233', { timeout: 10_000 });
+    await page.waitForFunction((color) => window.__WB_M3__?.getSpecification()?.body?.color === color, '#2F5496', { timeout: 10_000 });
     await page.screenshot({ path: m2WorkspaceScreenshotPath, fullPage: false });
     await page.locator('[data-step="1"]').click();
     await page.locator('#homeView').waitFor({ state: 'visible', timeout: 5_000 });
@@ -2001,7 +2001,7 @@ async function runBrowserChecks(page) {
       paper: window.__WB_M6__?.getPreview()?.paper,
     }));
     await page.locator('[data-spec-tab="body"]').click();
-    await page.locator('#specBodySize').fill('18px');
+    await page.locator('#specBodySize').selectOption('18px');
     await page.waitForFunction(() => window.__WB_M6__?.getPreview()?.computedFont === '18px', null, { timeout: 5_000 });
     assert(await page.locator('#mdEditor').inputValue() === mdBefore, '修改正文设置改写了 Markdown。');
     assert((await page.evaluate(() => window.__WB_M3__?.getSpecification()?.body?.size)) === '18px', '正文设置未写入 Specification。');
@@ -2085,7 +2085,7 @@ async function runBrowserChecks(page) {
     const painted = await page.evaluate(() => (window.__WB_M7__?.painted() || []).find((item) => item.type === 'heading1'));
     assert(painted && painted.fontSize === '27px' && /第一章/.test(painted.text || ''), `启发式标题未按 H1 涂绘：${JSON.stringify(painted)}`);
     await page.locator('[data-spec-tab="heading"]').click();
-    await page.locator('#specH1Size').fill('30px');
+    await page.locator('#specH1Size').selectOption('30px');
     await page.waitForFunction(() => window.__WB_M7__?.headingFont() === '30px', null, { timeout: 5_000 });
     assert(await page.locator('#mdEditor').inputValue() === mdBefore, '修改标题规范改写了 Markdown。');
     await page.locator('[data-preview-mode="source"]').click();
@@ -2095,7 +2095,7 @@ async function runBrowserChecks(page) {
     await page.waitForFunction(() => window.__WB_M6__?.getPreview()?.mode === 'effect' && window.__WB_M7__?.headingFont() === '30px', null, { timeout: 5_000 });
     const taskFingerprint = await page.evaluate(() => window.__WB_M7__?.fingerprint());
     await page.locator('[data-spec-scope="file"]').click();
-    await page.locator('#specH1Size').fill('32px');
+    await page.locator('#specH1Size').selectOption('32px');
     await page.waitForFunction(() => window.__WB_M7__?.headingFont() === '32px', null, { timeout: 5_000 });
     assert((await page.evaluate(() => window.__WB_M3__?.getSpecification()?.heading1?.size)) === '32px', '当前文件 override 未写入 H1。');
     assert((await page.evaluate(() => window.__WB_M7__?.taskRules()?.heading1?.size)) === '30px', '文件 override 污染了任务规范。');
@@ -2271,7 +2271,7 @@ async function runBrowserChecks(page) {
     await page.locator('#libraryEditor').waitFor({ state: 'visible', timeout: 5_000 });
     await page.locator('#libraryEditorName').fill('投标模板');
     await page.locator('#libraryEditorTabs [data-lib-tab="body"]').click();
-    await page.locator('#lib-specBodySize').fill('20px');
+    await page.locator('#lib-specBodySize').selectOption('20px');
     await page.screenshot({ path: m11EditorScreenshotPath, fullPage: false });
     await page.locator('#libraryEditorSaveBtn').click();
     await page.waitForFunction(() => (window.__WB_M11__?.list() || []).some((item) => item.name === '投标模板' && item.bodySize === '20px'), null, { timeout: 5_000 });
@@ -2309,14 +2309,14 @@ async function runBrowserChecks(page) {
       lib: (window.__WB_M2__?.library() || []).length,
     }));
     await page.locator('[data-spec-tab="body"]').click();
-    await page.locator('#specBodySize').fill('18px');
+    await page.locator('#specBodySize').selectOption('18px');
     await page.waitForFunction(() => window.__WB_M3__?.getSpecification()?.body?.size === '18px', null, { timeout: 5_000 });
     assert((await page.evaluate(() => (window.__WB_M2__?.library() || []).length)) === before.lib, '任务内修改写入了规范库。');
     await page.locator('[data-app-view="specs"]').click();
     await page.locator('#specLibraryList [data-lib-action="edit"]').first().click();
     await page.locator('#libraryEditor').waitFor({ state: 'visible', timeout: 5_000 });
     await page.locator('#libraryEditorTabs [data-lib-tab="body"]').click();
-    await page.locator('#lib-specBodySize').fill('22px');
+    await page.locator('#lib-specBodySize').selectOption('22px');
     await page.locator('#libraryEditorSaveBtn').click();
     await page.locator('#resumeTaskBtn').click();
     await page.locator('#specRail').waitFor({ state: 'visible', timeout: 8_000 });
@@ -2327,6 +2327,79 @@ async function runBrowserChecks(page) {
     assert(after.size === '18px', `编辑规范库改写了任务规范：${after.size}`);
     assert(after.libraryHas22, '规范库编辑未保存。');
     return `任务 18px 未变 · 规范库已更新 22px · 库 ${before.lib} 条`;
+  });
+
+  await check('M13 规范设置只用常用选项且保留五个 Tab', async () => {
+    await startTaskToWorkspace(page, fixturePaths.docx);
+    const fields = await page.evaluate(() => {
+      const tabs = Array.from(document.querySelectorAll('#specRail [data-spec-tab]')).map((node) => node.dataset.specTab);
+      const controls = Array.from(document.querySelectorAll('#specRail [data-spec-path]'));
+      return {
+        tabs,
+        freeInputs: controls.filter((node) => node.tagName === 'INPUT' && node.type !== 'checkbox').map((node) => node.id),
+        optionSelects: controls.filter((node) => node.tagName === 'SELECT').length,
+        optionless: controls.filter((node) => node.tagName === 'SELECT' && node.options.length < 2).map((node) => node.id),
+        colorSwatches: document.querySelectorAll('#specRail .mp-spec-color-swatch').length,
+        libraryFreeInputs: Array.from(document.querySelectorAll('#libraryEditorFields [data-lib-path]')).filter((node) => node.tagName === 'INPUT' && node.type !== 'checkbox').map((node) => node.id),
+      };
+    });
+    assert(fields.tabs.join(',') === 'page,body,heading,table,image', `规范 Tab 丢失或顺序变化：${fields.tabs.join(',')}`);
+    assert(fields.freeInputs.length === 0 && fields.libraryFreeInputs.length === 0, `规范设置仍含自由输入：${fields.freeInputs.concat(fields.libraryFreeInputs).join(',')}`);
+    assert(fields.optionSelects >= 25 && fields.optionless.length === 0, `常用选项控件缺失：${JSON.stringify(fields)}`);
+    assert(fields.colorSwatches >= 6, `颜色选项缺少预览色块：${fields.colorSwatches}`);
+    return `5 个 Tab · 常用下拉 ${fields.optionSelects} 个 · 无自由输入 · 颜色预览 ${fields.colorSwatches} 个`;
+  });
+
+  await check('M15 左侧文档大纲跟随标题、滚动和文件切换', async () => {
+    await startTaskToWorkspace(page, [fixturePaths.docx, fixturePaths.manualHeading]);
+    await page.waitForFunction(() => /sample\.docx$/i.test(window.__WB_M6__?.getPreview()?.fileName || '') && (window.__WB_M15__?.getOutline()?.length || 0) >= 6, null, { timeout: 25_000 });
+    const sample = await page.evaluate(() => ({
+      headings: Array.from(document.querySelectorAll('#wordPaper h1,#wordPaper h2,#wordPaper h3,#wordPaper h4,#wordPaper h5,#wordPaper h6')).map((node) => ({ level: Number(node.tagName.slice(1)), text: node.textContent.replace(/\s+/g, ' ').trim() })),
+      outline: window.__WB_M15__?.getOutline() || [],
+    }));
+    assert(sample.outline.length === sample.headings.length, `大纲没有覆盖全部实际标题：${sample.outline.length}/${sample.headings.length}`);
+    assert(sample.outline.every((item, index) => item.level === sample.headings[index].level && item.text === sample.headings[index].text), `大纲层级或文案与文档标题不一致：${JSON.stringify(sample)}`);
+    await page.locator('#documentOutlineList button').nth(2).click();
+    try {
+      await page.waitForFunction(() => window.__WB_M15__?.getOutline()?.[2]?.active, null, { timeout: 5_000 });
+    } catch (error) {
+      const snapshot = await page.evaluate(() => ({
+        viewport: { width: window.innerWidth, height: window.innerHeight },
+        scrollTop: document.querySelector('#wordStage')?.scrollTop,
+        stage: document.querySelector('#wordStage')?.getBoundingClientRect().toJSON(),
+        headings: Array.from(document.querySelectorAll('#wordPaper h1,#wordPaper h2,#wordPaper h3,#wordPaper h4,#wordPaper h5,#wordPaper h6')).map((node) => ({ text: node.textContent, top: node.getBoundingClientRect().top })),
+        outline: window.__WB_M15__?.getOutline(),
+      }));
+      throw new Error(`点击后当前标题高亮超时：${JSON.stringify(snapshot)} · ${error.message}`);
+    }
+
+    await page.locator('#fileRailList .mp-file-name', { hasText: 'manual-heading.docx' }).click();
+    await page.waitForFunction(() => {
+      const map = window.__WB_M5__?.getMap();
+      return map && /manual-heading\.docx$/i.test(map.fileName || '') && map.reviewCount > 0 && (window.__WB_M15__?.getOutline()?.length || 0) === 0;
+    }, null, { timeout: 25_000 });
+    const pending = await page.evaluate(() => ({
+      outline: window.__WB_M15__?.getOutline() || [],
+      chapter: (window.__WB_M5__?.getMap()?.blocks || []).find((block) => String(block.text).includes('第一章')),
+    }));
+    assert(pending.chapter && pending.chapter.needsReview, `测试夹具没有待确认标题：${JSON.stringify(pending)}`);
+    assert(!pending.outline.some((item) => item.text.includes('第一章')), '未确认的启发式标题提前出现在大纲里。');
+    await page.evaluate((id) => window.__WB_M5__.setType(id, 'heading1', true), pending.chapter.id);
+    await page.waitForFunction(() => window.__WB_M15__?.getOutline()?.some((item) => item.text.includes('第一章')), null, { timeout: 8_000 });
+
+    await page.locator('#fileRailList .mp-file-name', { hasText: 'sample.docx' }).click();
+    await page.waitForFunction(() => /sample\.docx$/i.test(window.__WB_M6__?.getPreview()?.fileName || '') && (window.__WB_M15__?.getOutline()?.length || 0) >= 6, null, { timeout: 25_000 });
+    await page.setViewportSize({ width: 390, height: 844 });
+    const mobile = await page.evaluate(() => ({
+      width: window.innerWidth,
+      documentWidth: document.documentElement.scrollWidth,
+      rail: document.querySelector('#fileRail')?.getBoundingClientRect().height || 0,
+      outline: document.querySelector('#documentOutline')?.getBoundingClientRect().height || 0,
+    }));
+    assert(mobile.rail > 0 && mobile.outline >= 90, `窄屏大纲不可见：${JSON.stringify(mobile)}`);
+    assert(mobile.documentWidth <= mobile.width + 1, `窄屏工作台横向溢出：${JSON.stringify(mobile)}`);
+    await page.setViewportSize({ width: 1440, height: 900 });
+    return `标题 ${sample.outline.length} 条与层级匹配 · 点击跳转并随滚动高亮 · 未确认标题隐藏、确认后加入 · 文件切换更新 · 手机无横向溢出`;
   });
 }
 
@@ -2480,7 +2553,7 @@ async function main() {
   const skipped = checks.filter((item) => item.status === 'SKIP').length;
   const htmlStat = await stat(appFile).catch(() => ({ size: 0 }));
   const report = {
-    version: 'M11',
+    version: 'M15',
     generatedAt: new Date().toISOString(),
     appUrl,
     html: { path: appFile, bytes: htmlStat.size, kb: Number((htmlStat.size / 1024).toFixed(1)) },
